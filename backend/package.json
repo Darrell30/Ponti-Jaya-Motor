@@ -17,6 +17,8 @@
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "busboy": "^1.6.0",
+    "cloudinary": "^2.8.0",
     "dotenv": "^16.4.5",
     "mongoose": "^8.4.4"
   }
