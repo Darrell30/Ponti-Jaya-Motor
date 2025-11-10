@@ -8,11 +8,21 @@ const Sparepart = require('./models/sparepart');
 const Service = require('./models/service'); 
 
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGO_URI = process.env.MONGO_URI; 
+
+console.log('--- Server Start Info ---');
+console.log(`Port: ${PORT}`);
+console.log('MongoDB URI Status:', MONGO_URI ? 'LOADED' : 'NOT FOUND. Check .env file and variable name.');
+console.log('-------------------------');
 
 const connectDB = async () => {
+    if (!MONGO_URI) {
+        console.error('❌ MongoDB connection failed: MONGO_URI is undefined. Please check your .env file.');
+        process.exit(1);
+    }
+    
     try {
-        await mongoose.connect(MONGODB_URI);
+        await mongoose.connect(MONGO_URI);
         console.log('✅ Connected to MongoDB successfully!');
     } catch (err) {
         console.error('❌ MongoDB connection failed:', err.message);
@@ -23,9 +33,8 @@ const connectDB = async () => {
 const sendResponse = (res, statusCode, data) => {
     res.writeHead(statusCode, { 
         'Content-Type': 'application/json',
-        // CORS setting untuk pengembangan
         'Access-Control-Allow-Origin': '*', 
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
         'Access-Control-Allow-Headers': 'Content-Type',
     });
     res.end(JSON.stringify(data));
@@ -56,43 +65,69 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (url === '/api/spareparts') {
-        if (method === 'GET') {
+    if (url.startsWith('/api/spareparts')) {
+        
+        if (url === '/api/spareparts' && method === 'GET') {
             try {
                 const spareparts = await Sparepart.find({});
-                sendResponse(res, 200, { success: true, data: spareparts });
+                sendResponse(res, 200, { success: true, count: spareparts.length, data: spareparts });
             } catch (error) {
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving spareparts' });
             }
-        } else if (method === 'POST') {
+        } 
+        else if (url === '/api/spareparts' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
                 const newSparepart = await Sparepart.create(body);
                 sendResponse(res, 201, { success: true, message: 'Sparepart created', data: newSparepart });
             } catch (error) {
-                // Error validasi Mongoose
                 const message = error.name === 'ValidationError' ? error.message : 'Server error creating sparepart';
                 sendResponse(res, 400, { success: false, message: message });
             }
+        } 
+        else if (method === 'GET' && url.split('/').length === 4) {
+            const id = url.split('/')[3];
+            try {
+                const sparepart = await Sparepart.findById(id);
+                if (!sparepart) {
+                    return sendResponse(res, 404, { success: false, message: 'Sparepart not found' });
+                }
+                sendResponse(res, 200, { success: true, data: sparepart });
+            } catch (error) {
+                sendResponse(res, 500, { success: false, message: 'Server error retrieving sparepart' });
+            }
         }
     } 
-    else if (url === '/api/services') {
-        if (method === 'GET') {
+    else if (url.startsWith('/api/services')) {
+        
+        if (url === '/api/services' && method === 'GET') {
             try {
                 const services = await Service.find({});
-                sendResponse(res, 200, { success: true, data: services });
+                sendResponse(res, 200, { success: true, count: services.length, data: services });
             } catch (error) {
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving services' });
             }
-        } else if (method === 'POST') {
+        } 
+        else if (url === '/api/services' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
                 const newService = await Service.create(body);
                 sendResponse(res, 201, { success: true, message: 'Service created', data: newService });
             } catch (error) {
-                // Error validasi Mongoose
                 const message = error.name === 'ValidationError' ? error.message : 'Server error creating service';
                 sendResponse(res, 400, { success: false, message: message });
+            }
+        }
+        else if (method === 'GET' && url.split('/').length === 4) {
+            const id = url.split('/')[3];
+            try {
+                const service = await Service.findById(id);
+                if (!service) {
+                    return sendResponse(res, 404, { success: false, message: 'Service not found' });
+                }
+                sendResponse(res, 200, { success: true, data: service });
+            } catch (error) {
+                sendResponse(res, 500, { success: false, message: 'Server error retrieving service' });
             }
         }
     }
@@ -104,8 +139,6 @@ const server = http.createServer(async (req, res) => {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`🚀 Server running for Ponti Jaya Motor on http://localhost:${PORT}`);
-        console.log(`Endpoints:`);
-        console.log(`  GET/POST /api/spareparts`);
-        console.log(`  GET/POST /api/services`);
+        console.log(`Endpoints: /api/spareparts, /api/services`);
     });
 });
