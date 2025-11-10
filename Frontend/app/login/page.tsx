@@ -18,12 +18,12 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    if (username === "admin" && password === "123") {
+    if (username === "admin@pontijaya.com" && password === "123") {
       // Berhasil login
       localStorage.setItem("isAdminLoggedIn", "true");
       
       // Arahkan ke dashboard
-      router.push("/admin/dashboard/page");
+      router.push("/admin/dashboard");
     } else {
       // Gagal login
       setError("Username atau password salah!");
@@ -41,7 +41,7 @@ export default function LoginPage() {
             <div className="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle mb-3" style={{ width: '60px', height: '60px' }}>
               <Lock size={28} />
             </div>
-            <h4 className="fw-bold text-dark">Admin Login</h4>
+            <h4 className="fw-bold text-dark">Login</h4>
             <p className="text-muted small">Masuk untuk mengelola bengkel</p>
           </div>
 
