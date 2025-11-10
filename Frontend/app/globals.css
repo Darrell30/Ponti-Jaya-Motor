@@ -51,3 +51,103 @@ a {
   color: white !important;
   transform: translateX(5px);
 }
+
+.btn-icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;  /* Sesuaikan ukuran */
+  height: 40px; /* Sesuaikan ukuran */
+  border-radius: 50%;
+  color: white;
+  text-decoration: none;
+  font-size: 1.2rem; /* Sesuaikan ukuran ikon */
+  transition: opacity 0.2s;
+}
+
+.btn-icon-circle:hover {
+  color: white;
+  opacity: 0.8;
+}
+
+.btn-hero-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+.btn-hero-primary:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+  color: #fff;
+}
+
+.btn-hero-secondary {
+  background-color: #fff;
+  border-color: #fff;
+  color: #0d6efd; /* Teks biru */
+}
+.btn-hero-secondary:hover {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff; /* Teks jadi putih */
+}
+
+.btn-add-to-cart {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  height: 48px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem; 
+  
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+.btn-add-to-cart:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+}
+
+.btn-service-wa {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: max-content;
+  
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+.btn-service-wa:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+}
+
+/* === Kustom Container Sesuai Figma (1720px) === */
+/* Digunakan untuk Navbar & Footer */
+.container-figma {
+  --bs-gutter-x: 20px;
+  max-width: 1720px !important; 
+}
+
+/* === Kustom Gutter Sesuai Figma (20px) === */
+/* Digunakan untuk Row di dalam konten halaman */
+.g-custom-20 {
+  --bs-gutter-x: 20px; /* Jarak horizontal */
+  --bs-gutter-y: 20px; /* Jarak vertikal */
+}
+
+.about-us-panel {
+  background-color: #fff; /* Latar belakang panel putih */
+  padding: 3rem;           /* Padding di dalam panel (sesuaikan jika perlu) */
+  border-radius: 0.5rem;   /* Sesuai dengan rounded-3 Bootstrap */
+  
+  /* Shadow-sm standar Bootstrap */
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); 
+}

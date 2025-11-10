@@ -5,15 +5,13 @@
 import { Container, Row, Col, Button, Image, Card, Spinner } from 'react-bootstrap';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import Navbar from "../app/components/Navbar";
-
 
 // Definisikan Tipe untuk produk dari backend
 interface Product {
   _id: string;
   nama: string;
   imageUrl: string;
-  harga: number; // Dibuat wajib, karena "Terlaris" membutuhkannya
+  harga: number;
   stok?: number;
   deskripsi?: string;
 }
@@ -37,7 +35,7 @@ const bestSellingProductNames = [
   "Selang Rem",
 ];
 
-//MASIH DATA DUMMY
+// MASIH DATA DUMMY
 const services = [
   { name: "Servis Rutin", img: "/images/jasa/servis-rutin.jpg" },
   { name: "Ganti Sparepart", img: "/images/jasa/ganti-sparepart.jpg" },
@@ -45,18 +43,18 @@ const services = [
 ];
 
 
-// KOMPONEN UTAM
+// KOMPONEN UTAMA
 
 export default function Home() {
 
   // State untuk menyimpan data yang sudah difilter
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]); // <-- STATE BARU
+  const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // LOGIKA FETCH (Diperbarui untuk 2 section)
+  // LOGIKA FETCH
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -69,13 +67,11 @@ export default function Home() {
         if (data.success) {
           const allProducts: Product[] = data.data;
 
-          // 1. Filter untuk "Paling di Cari"
           const filteredFeatured = allProducts.filter(product =>
             featuredProductNames.includes(product.nama)
           );
           setFeaturedProducts(filteredFeatured);
 
-          // 2. Filter untuk "Produk Terlaris"
           const filteredBestSelling = allProducts.filter(product =>
             bestSellingProductNames.includes(product.nama)
           );
@@ -93,20 +89,17 @@ export default function Home() {
     };
 
     fetchProducts();
-  }, []); // [] artinya useEffect ini hanya berjalan sekali
+  }, []);
 
 
   return (
-    <main style={{ backgroundColor: "#fff", minHeight: "100vh" }}>
+    <main style={{ backgroundColor: "#fff" }}>
       
-      {/* Navbar */}
-      <Navbar />
-
-      {/* === 1. HERO SECTION (Gabungan) === */}
+      {/* === 1. HERO SECTION === */}
       <div
         className="text-center text-white"
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/bengkel.jpg')`,
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/images/hero/bengkel.jpg')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           paddingTop: '6rem',
@@ -125,9 +118,7 @@ export default function Home() {
                   as={Link}
                   href="/sparepart"
                   size="lg"
-                  className="px-4 fw-bold rounded-3"
-                  variant="primary"
-                  style={{backgroundColor: '#0d6efd', border: 'none'}}
+                  className="px-4 fw-bold rounded-3 btn-hero-primary"
                 >
                   Lihat Katalog
                 </Button>
@@ -135,8 +126,7 @@ export default function Home() {
                   as={Link}
                   href="/jasa"
                   size="lg"
-                  variant="light"
-                  className="px-4 fw-bold rounded-3 text-primary"
+                  className="px-4 fw-bold rounded-3 btn-hero-secondary"
                 >
                   Jasa Servis
                 </Button>
@@ -146,27 +136,24 @@ export default function Home() {
         </Container>
       </div>
 
-      {/* === 2. PRODUK YANG PALING DI CARI-CARI (Terkoneksi Backend) === */}
+      {/* === 2. PRODUK YANG PALING DI CARI-CARI === */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
         
         {loading && (
           <div className="text-center">
-            <Spinner animation="border" role="status">
-              <span className="visually-hidden">Loading produk...</span>
-            </Spinner>
+            <Spinner animation="border" role="status" />
           </div>
         )}
-        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+        {error && <p className="text-danger text-center">Error: {error}</p>}
 
-        {/* Menggunakan layout dari kode baru Anda (roundedCircle) */}
-        <Row className="g-4 row-cols-1 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 justify-content-center">
+        <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 justify-content-center">
           {!loading && !error && featuredProducts.map((product) => (
             <Col key={product._id} className="text-center">
               <Link href="#" className="text-decoration-none">
                 <Image
-                  src={product.imageUrl} // <-- Data Asli
-                  alt={product.nama}      // <-- Data Asli
+                  src={product.imageUrl}
+                  alt={product.nama}
                   roundedCircle
                   className="shadow-sm mb-3"
                   style={{
@@ -183,21 +170,18 @@ export default function Home() {
       </Container>
 
       
-      {/* === 3. PRODUK TERLARIS (Terkoneksi Backend) === */}
+      {/* === 3. PRODUK TERLARIS === */}
       <Container as="section" className="py-5 bg-light">
         <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
         
         {loading && (
           <div className="text-center">
-            <Spinner animation="border" role="status">
-              <span className="visually-hidden">Loading produk...</span>
-            </Spinner>
+            <Spinner animation="border" role="status" />
           </div>
         )}
-        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+        {error && <p className="text-danger text-center">Error: {error}</p>}
         
-        <Row className="g-4 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
-          {/* Menggunakan data dari state bestSellingProducts */}
+        <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
           {!loading && !error && bestSellingProducts.map((product) => (
             <Col key={product._id} className="mb-4">
               <Card className="h-100 shadow-sm border-0 rounded-3 overflow-hidden">
@@ -211,10 +195,9 @@ export default function Home() {
                   className="d-flex flex-column pt-3 px-3 pb-4"
                 >
                   <Card.Title as="h5" className="fw-bold text-dark mb-1">
-                    {product.nama} {/* <-- Data Asli */}
+                    {product.nama}
                   </Card.Title>
                   <Card.Text className="text-dark fw-bold fs-5 mb-3">
-                    {/* Format harga dari Angka (DB) ke Rupiah (Tampilan) */}
                     {product.harga.toLocaleString('id-ID', {
                       style: 'currency',
                       currency: 'IDR',
@@ -224,9 +207,9 @@ export default function Home() {
                   
                   <Button
                     variant="primary"
-                    className="w-100 mt-auto rounded-3"
+                    className="w-100 mt-auto rounded-3 btn-add-to-cart"
                   >
-                    {/* <i className="bi bi-cart-plus"></i> */}
+                    <i className="bi bi-cart-plus"></i>
                     Tambah
                   </Button>
                 </Card.Body>
@@ -237,11 +220,11 @@ export default function Home() {
       </Container>
 
       
-      {/*4. JASA KAMI (Masih Dummy) */}
+      {/* === 4. JASA KAMI (Masih Dummy) === */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         
-        <Row className="g-4 row-cols-1 row-cols-md-3">
+        <Row className="g-custom-20 row-cols-1 row-cols-md-3">
           {services.map((service, index) => (
             <Col key={index} className="mb-4">
               <Card className="text-white border-0 rounded-3 overflow-hidden">
@@ -262,9 +245,9 @@ export default function Home() {
                   
                   <Button
                     variant="primary"
-                    className="rounded-3"
+                    className="rounded-3 btn-service-wa"
                   >
-                    {/* <i className="bi bi-whatsapp" style={{ fontSize: '1.2rem' }}></i> */}
+                    <i className="bi bi-whatsapp" style={{ fontSize: '1.2rem' }}></i>
                     Hubungi Kami
                   </Button>
                 </Card.ImgOverlay>
@@ -272,6 +255,44 @@ export default function Home() {
             </Col>
           ))}
         </Row>
+      </Container>
+      
+      {/* ================================== */}
+      {/* === 5. SECTION TENTANG KAMI (REVISI) === */}
+      {/* ================================== */}
+      {/* Container ini tetap bg-light (latar abu-abu) */}
+      <Container as="section" className="py-5 bg-light">
+        
+        {/* REVISI: 
+          Kita tambahkan <div> ini dengan class "about-us-panel"
+          untuk membuat panel putih di atas latar abu-abu.
+        */}
+        <div className="about-us-panel">
+          <Row className="align-items-center g-custom-20">
+            
+            {/* Kolom Kiri: Teks */}
+            <Col md={6} className="mb-4 mb-md-0">
+              {/* Ukuran font dan margin disesuaikan agar lebih mirip figma */}
+              <h2 className="fw-bold mb-4 text-dark" style={{ fontSize: '2.5rem' }}>
+                Apa itu Ponti Jaya Motor?
+              </h2>
+              <p className="fs-5 text-secondary" style={{ lineHeight: '1.6' }}>
+                Toko sparepart daerah jakarta barat dengan jasa service yang memuaskan terutama dalam pengelolaan service bajaj disertai dengan kelengkapan produk di dalam toko.
+              </p>
+            </Col>
+            
+            {/* Kolom Kanan: Gambar */}
+            <Col md={6}>
+              <Image 
+                src="/images/hero/bengkel.jpg"
+                alt="Tentang Ponti Jaya Motor"
+                fluid
+                className="rounded-3" /* Shadow dihapus dari gambar, karena sudah ada di panel */
+              />
+            </Col>
+            
+          </Row>
+        </div>
       </Container>
 
     </main>

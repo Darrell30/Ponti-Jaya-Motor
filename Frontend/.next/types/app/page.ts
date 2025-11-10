@@ -1,4 +1,4 @@
-// File: C:\user\PONTI-JAYA-MOTOR\ponti-jaya-motor\Frontend\app\page.tsx
+// File: /home/slushy/Documents/Kuliah/Front-End Programming/UAS/Ponti-Jaya-Motor/Frontend/app/page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
