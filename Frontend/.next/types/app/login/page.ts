@@ -1,4 +1,4 @@
-// File: /home/slushy/Documents/Kuliah/Front-End Programming/UAS/Ponti-Jaya-Motor/Frontend/app/login/page.tsx
+// File: C:\Users\Asus\OneDrive\Dokumen\Tugaskuliah\Semester 3\Ponti-Jaya-Motor\Frontend\app\login\page.tsx
 import * as entry from '../../../../app/login/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

@@ -1,4 +1,4 @@
-// File: /home/slushy/Documents/Kuliah/Front-End Programming/UAS/Ponti-Jaya-Motor/Frontend/app/admin/layout.tsx
+// File: C:\Users\Asus\OneDrive\Dokumen\Tugaskuliah\Semester 3\Ponti-Jaya-Motor\Frontend\app\admin\layout.tsx
 import * as entry from '../../../../app/admin/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
