@@ -20,6 +20,8 @@ const serviceSchema = new mongoose.Schema({
         type: String,
         required: true
     }
+}, {
+    collection: 'Jasa' 
 });
 
 const Service = mongoose.model('Service', serviceSchema);

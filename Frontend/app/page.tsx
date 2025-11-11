@@ -6,7 +6,7 @@ import { Container, Row, Col, Button, Image, Card, Spinner } from 'react-bootstr
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
-// Definisikan Tipe untuk produk dari backend
+// === TIPE DATA ===
 interface Product {
   _id: string;
   nama: string;
@@ -16,7 +16,16 @@ interface Product {
   deskripsi?: string;
 }
 
-// Daftar NAMA produk yang ingin Anda tampilkan di "Paling di Cari"
+// TIPE BARU UNTUK JASA
+interface Service {
+  _id: string;
+  nama: string;
+  imageUrl: string;
+  harga: number;
+  deskripsi?: string;
+}
+
+// === DAFTAR FILTER NAMA (Tidak Berubah) ===
 const featuredProductNames = [
   "Veleg",
   "Selang Rem",
@@ -27,7 +36,6 @@ const featuredProductNames = [
   "Veleg"
 ];
 
-// Daftar NAMA produk untuk "Produk Terlaris"
 const bestSellingProductNames = [
   "Master Rem",
   "Kampas Rem", 
@@ -36,38 +44,41 @@ const bestSellingProductNames = [
   "Tabung Central",
 ];
 
-// MASIH DATA DUMMY
-const services = [
-  { name: "Servis Rem", img: "/images/jasa/servis rem.jpg" },
-  { name: "Ganti Sparepart", img: "/images/jasa/ganti sparepart.jpg" },
-  { name: "Ganti Oli", img: "/images/jasa/ganti oli.jpg" },
-];
+// === HAPUS DATA DUMMY 'services' ===
+// Array 'services' yang lama sudah dihapus
 
-
-// KOMPONEN UTAMA
+// === KOMPONEN UTAMA ===
 
 export default function Home() {
 
-  // State untuk menyimpan data yang sudah difilter
+  // === STATE (DIPERBARUI) ===
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]); // <-- STATE BARU UNTUK JASA
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // LOGIKA FETCH
+  // === LOGIKA FETCH (DIPERBARUI) ===
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchAllData = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/spareparts');
-        if (!response.ok) {
+        // Kita akan mengambil data sparepart DAN service secara bersamaan
+        const [sparepartRes, serviceRes] = await Promise.all([
+          fetch('http://localhost:5000/api/spareparts'),
+          fetch('http://localhost:5000/api/services') // <-- PANGGILAN API BARU
+        ]);
+
+        if (!sparepartRes.ok || !serviceRes.ok) {
           throw new Error('Gagal mengambil data dari server');
         }
-        const data = await response.json();
 
-        if (data.success) {
-          const allProducts: Product[] = data.data;
+        const sparepartData = await sparepartRes.json();
+        const serviceData = await serviceRes.json(); // <-- DATA BARU
 
+        // Proses data sparepart (seperti sebelumnya)
+        if (sparepartData.success) {
+          const allProducts: Product[] = sparepartData.data;
           const filteredFeatured = allProducts.filter(product =>
             featuredProductNames.includes(product.nama)
           );
@@ -77,28 +88,38 @@ export default function Home() {
             bestSellingProductNames.includes(product.nama)
           );
           setBestSellingProducts(filteredBestSelling);
-
         } else {
-          throw new Error(data.message || 'Gagal memuat data');
+          throw new Error(sparepartData.message || 'Gagal memuat data sparepart');
         }
+
+        // Proses data jasa
+        if (serviceData.success) {
+          // Ambil 3 jasa pertama saja, sesuai permintaan Anda
+          setServices(serviceData.data.slice(0, 3)); // <-- SET STATE BARU
+        } else {
+          throw new Error(serviceData.message || 'Gagal memuat data jasa');
+        }
+
       } catch (err: any) {
         console.error("Fetch Error:", err);
         setError(err.message);
       } finally {
-        setLoading(false);
+        setLoading(false); // Set loading false HANYA setelah semua data selesai
       }
     };
 
-    fetchProducts();
-  }, []);
+    fetchAllData();
+  }, []); // [] = jalankan sekali saat load
 
 
   return (
+    // Pastikan Navbar dipanggil di sini jika belum ada
     <main style={{ backgroundColor: "#fff" }}>
+      {/* <Navbar /> -- Jika Navbar tidak ada di layout.tsx, tambahkan di sini */}
       
-      {/* === 1. HERO SECTION === */}
+      {/* === 1. HERO SECTION (Tidak Berubah) === */}
       <div
-        id="hero" // ID untuk scroll-to
+        id="hero"
         className="text-center text-white"
         style={{
           backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/images/hero/bengkel.jpg')`,
@@ -138,7 +159,7 @@ export default function Home() {
         </Container>
       </div>
 
-      {/* === 2. PRODUK YANG PALING DI CARI-CARI === */}
+      {/* === 2. PRODUK YANG PALING DI CARI-CARI (Tidak Berubah) === */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
         
@@ -172,7 +193,7 @@ export default function Home() {
       </Container>
 
       
-      {/* === 3. PRODUK TERLARIS === */}
+      {/* === 3. PRODUK TERLARIS (Tidak Berubah) === */}
       <Container as="section" className="py-5 bg-light">
         <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
         
@@ -222,17 +243,26 @@ export default function Home() {
       </Container>
 
       
-      {/* === 4. JASA KAMI (Masih Dummy) === */}
+      {/* === 4. JASA KAMI (DIPERBARUI) === */}
       <Container as="section" className="py-5" id="jasa"> {/* ID untuk scroll-to */}
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         
+        {/* Tampilkan loading/error jika perlu */}
+        {loading && (
+          <div className="text-center">
+            <Spinner animation="border" role="status" />
+          </div>
+        )}
+        {error && <p className="text-danger text-center">Error: {error}</p>}
+
         <Row className="g-custom-20 row-cols-1 row-cols-md-3">
-          {services.map((service, index) => (
-            <Col key={index} className="mb-4">
+          {/* Loop dari STATE 'services', bukan dummy */}
+          {!loading && !error && services.map((service) => (
+            <Col key={service._id} className="mb-4">
               <Card className="text-white border-0 rounded-3 overflow-hidden">
                 <Card.Img
-                  src={service.img}
-                  alt={service.name}
+                  src={service.imageUrl} // <-- Data Asli
+                  alt={service.nama}     // <-- Data Asli
                   style={{ height: '250px', objectFit: 'cover' }}
                 />
                 <Card.ImgOverlay
@@ -242,7 +272,7 @@ export default function Home() {
                   }}
                 >
                   <Card.Title as="h2" className="fw-bold mb-3">
-                    {service.name}
+                    {service.nama} {/* <-- Data Asli */}
                   </Card.Title>
                   
                   <Button
@@ -259,7 +289,7 @@ export default function Home() {
         </Row>
       </Container>
       
-      {/* === 5. SECTION TENTANG KAMI === */}
+      {/* === 5. SECTION TENTANG KAMI (Tidak Berubah) === */}
       <Container as="section" className="py-5 bg-light">
         <div className="about-us-panel">
           <Row className="align-items-center g-custom-20">
@@ -287,7 +317,7 @@ export default function Home() {
       </Container>
 
 
-      {/* === 6. SECTION HUBUNGI KAMI === */}
+      {/* === 6. SECTION HUBUNGI KAMI (Tidak Berubah) === */}
       <Container as="section" className="py-5" id="hubungi"> {/* ID untuk scroll-to */}
         <Row className="align-items-center g-custom-20">
           
