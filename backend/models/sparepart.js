@@ -16,7 +16,7 @@ const sparepartSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    stok: { 
+    stok: {
         type: Number,
         required: true,
         default: 0
@@ -25,6 +25,9 @@ const sparepartSchema = new mongoose.Schema({
         type: String,
         required: true
     }
+}, {
+    // TAMBAHAN: Memberitahu Mongoose nama collection yang TEPAT
+    collection: 'Sparepart' 
 });
 
 const Sparepart = mongoose.model('Sparepart', sparepartSchema);

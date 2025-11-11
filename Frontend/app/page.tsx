@@ -1,76 +1,299 @@
 // app/page.tsx
-import Navbar from "../app/components/Navbar";
-import Image from "next/image";
-import Link from "next/link";
+'use client';
+
+// 1. Import komponen dari react-bootstrap DAN hook dari React
+import { Container, Row, Col, Button, Image, Card, Spinner } from 'react-bootstrap';
+import Link from 'next/link';
+import { useState, useEffect } from 'react';
+
+// Definisikan Tipe untuk produk dari backend
+interface Product {
+  _id: string;
+  nama: string;
+  imageUrl: string;
+  harga: number;
+  stok?: number;
+  deskripsi?: string;
+}
+
+// Daftar NAMA produk yang ingin Anda tampilkan di "Paling di Cari"
+const featuredProductNames = [
+  "Veleg",
+  "Selang Rem",
+  "Kampas Rem",
+  "Seal Lahar Bambu",
+  "Klahar Roda",
+  "Tabung Central"
+];
+
+// Daftar NAMA produk untuk "Produk Terlaris"
+const bestSellingProductNames = [
+  "Master Rem",
+  "Kampas Rem", 
+  "Klahar Roda",
+  "Master Central",
+  "Selang Rem",
+];
+
+// MASIH DATA DUMMY
+const services = [
+  { name: "Servis Rutin", img: "/images/jasa/servis-rutin.jpg" },
+  { name: "Ganti Sparepart", img: "/images/jasa/ganti-sparepart.jpg" },
+  { name: "Turun Mesin", img: "/images/jasa/turun-mesin.jpg" },
+];
+
+
+// KOMPONEN UTAMA
 
 export default function Home() {
-  const featuredProducts = [
-    { name: "Veleg", img: "https://via.placeholder.com/150" },
-    { name: "Selang Rem", img: "https://via.placeholder.com/150" },
-    { name: "Kampas Rem", img: "https://via.placeholder.com/150" },
-    { name: "Seal Lahar Bambu", img: "https://via.placeholder.com/150" },
-    { name: "Klahar Roda", img: "https://via.placeholder.com/150" },
-    { name: "Tabung Central", img: "https://via.placeholder.com/150" },
-    { name: "Komstir Atas", img: "https://via.placeholder.com/150" },
-  ];
+
+  // State untuk menyimpan data yang sudah difilter
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // LOGIKA FETCH
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/spareparts');
+        if (!response.ok) {
+          throw new Error('Gagal mengambil data dari server');
+        }
+        const data = await response.json();
+
+        if (data.success) {
+          const allProducts: Product[] = data.data;
+
+          const filteredFeatured = allProducts.filter(product =>
+            featuredProductNames.includes(product.nama)
+          );
+          setFeaturedProducts(filteredFeatured);
+
+          const filteredBestSelling = allProducts.filter(product =>
+            bestSellingProductNames.includes(product.nama)
+          );
+          setBestSellingProducts(filteredBestSelling);
+
+        } else {
+          throw new Error(data.message || 'Gagal memuat data');
+        }
+      } catch (err: any) {
+        console.error("Fetch Error:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#fff" }}>
+    <main style={{ backgroundColor: "#fff" }}>
       
-      {/* Navbar */}
-      <Navbar />
-
-      {/* 2. Hero section */}
-      <section 
+      {/* === 1. HERO SECTION === */}
+      <div
+        className="text-center text-white"
         style={{
-          // backround gambar
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/bengkel.jpg')`,
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/images/hero/bengkel.jpg')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          height: '400px', 
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center'
+          paddingTop: '6rem',
+          paddingBottom: '6rem',
         }}
       >
-        <div className="container">
-          <h1 className="fw-bold display-4 mb-3">Ponti Jaya Motor</h1>
-          <p className="fs-5 mb-4 mx-auto" style={{ maxWidth: '700px' }}>
-            Website untuk melihat katalog produk berupa sparepart kendaraan roda tiga, juga menyediakan jasa servis.
-          </p>
-          <div className="d-flex gap-3 justify-content-center">
-            <Link href="/sparepart" className="btn btn-primary btn-lg px-4 fw-bold rounded-3" style={{backgroundColor: '#0d6efd', border: 'none'}}>
-              Lihat Katalog
-            </Link>
-            <Link href="/jasa" className="btn btn-light btn-lg px-4 fw-bold rounded-3 text-primary">
-              Jasa Servis
-            </Link>
-          </div>
-        </div>
-      </section>
+        <Container>
+          <Row className="justify-content-center">
+            <Col md={10} lg={8}>
+              <h1 className="fw-bold display-4 mb-3">Ponti Jaya Motor</h1>
+              <p className="fs-5 mb-4">
+                Website untuk melihat katalog produk berupa sparepart kendaraan roda tiga, juga menyediakan jasa servis.
+              </p>
+              <div className="d-flex gap-3 justify-content-center">
+                <Button
+                  as={Link}
+                  href="/sparepart"
+                  size="lg"
+                  className="px-4 fw-bold rounded-3 btn-hero-primary"
+                >
+                  Lihat Katalog
+                </Button>
+                <Button
+                  as={Link}
+                  href="/jasa"
+                  size="lg"
+                  className="px-4 fw-bold rounded-3 btn-hero-secondary"
+                >
+                  Jasa Servis
+                </Button>
+              </div>
+            </Col>
+          </Row>
+        </Container>
+      </div>
 
-      {/* Produk terlaris */}
-      <section className="py-5 container">
+      {/* === 2. PRODUK YANG PALING DI CARI-CARI === */}
+      <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
         
-        {/* Grid Produk*/}
-        <div className="row g-4 justify-content-center justify-content-md-start">
-          {featuredProducts.map((bengkel, index) => (
-            <div key={index} className="col-6 col-sm-4 col-md-3 col-lg-2 text-center">
-              <div className="mb-3 d-inline-block rounded-circle overflow-hidden shadow-sm" style={{ width: '120px', height: '120px', position: 'relative' }}>
-                <img 
-                  src={bengkel.img} 
-                  alt={bengkel.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+        {loading && (
+          <div className="text-center">
+            <Spinner animation="border" role="status" />
+          </div>
+        )}
+        {error && <p className="text-danger text-center">Error: {error}</p>}
+
+        <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 justify-content-center">
+          {!loading && !error && featuredProducts.map((product) => (
+            <Col key={product._id} className="text-center">
+              <Link href="#" className="text-decoration-none">
+                <Image
+                  src={product.imageUrl}
+                  alt={product.nama}
+                  roundedCircle
+                  className="shadow-sm mb-3"
+                  style={{
+                    width: '120px',
+                    height: '120px',
+                    objectFit: 'cover'
+                  }}
                 />
-              </div>
-              <h6 className="fw-bold text-dark">{bengkel.name}</h6>
-            </div>
+                <h6 className="fw-bold text-dark">{product.nama}</h6>
+              </Link>
+            </Col>
           ))}
+        </Row>
+      </Container>
+
+      
+      {/* === 3. PRODUK TERLARIS === */}
+      <Container as="section" className="py-5 bg-light">
+        <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
+        
+        {loading && (
+          <div className="text-center">
+            <Spinner animation="border" role="status" />
+          </div>
+        )}
+        {error && <p className="text-danger text-center">Error: {error}</p>}
+        
+        <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
+          {!loading && !error && bestSellingProducts.map((product) => (
+            <Col key={product._id} className="mb-4">
+              <Card className="h-100 shadow-sm border-0 rounded-3 overflow-hidden">
+                <Card.Img
+                  variant="top"
+                  src={product.imageUrl}
+                  alt={product.nama}    
+                  style={{ height: '150px', objectFit: 'cover' }}
+                />
+                <Card.Body
+                  className="d-flex flex-column pt-3 px-3 pb-4"
+                >
+                  <Card.Title as="h5" className="fw-bold text-dark mb-1">
+                    {product.nama}
+                  </Card.Title>
+                  <Card.Text className="text-dark fw-bold fs-5 mb-3">
+                    {product.harga.toLocaleString('id-ID', {
+                      style: 'currency',
+                      currency: 'IDR',
+                      minimumFractionDigits: 0 
+                    })}
+                  </Card.Text>
+                  
+                  <Button
+                    variant="primary"
+                    className="w-100 mt-auto rounded-3 btn-add-to-cart"
+                  >
+                    <i className="bi bi-cart-plus"></i>
+                    Tambah
+                  </Button>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Container>
+
+      
+      {/* === 4. JASA KAMI (Masih Dummy) === */}
+      <Container as="section" className="py-5">
+        <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
+        
+        <Row className="g-custom-20 row-cols-1 row-cols-md-3">
+          {services.map((service, index) => (
+            <Col key={index} className="mb-4">
+              <Card className="text-white border-0 rounded-3 overflow-hidden">
+                <Card.Img
+                  src={service.img}
+                  alt={service.name}
+                  style={{ height: '250px', objectFit: 'cover' }}
+                />
+                <Card.ImgOverlay
+                  className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  }}
+                >
+                  <Card.Title as="h2" className="fw-bold mb-3">
+                    {service.name}
+                  </Card.Title>
+                  
+                  <Button
+                    variant="primary"
+                    className="rounded-3 btn-service-wa"
+                  >
+                    <i className="bi bi-whatsapp" style={{ fontSize: '1.2rem' }}></i>
+                    Hubungi Kami
+                  </Button>
+                </Card.ImgOverlay>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Container>
+      
+      {/* ================================== */}
+      {/* === 5. SECTION TENTANG KAMI (REVISI) === */}
+      {/* ================================== */}
+      {/* Container ini tetap bg-light (latar abu-abu) */}
+      <Container as="section" className="py-5 bg-light">
+        
+        {/* REVISI: 
+          Kita tambahkan <div> ini dengan class "about-us-panel"
+          untuk membuat panel putih di atas latar abu-abu.
+        */}
+        <div className="about-us-panel">
+          <Row className="align-items-center g-custom-20">
+            
+            {/* Kolom Kiri: Teks */}
+            <Col md={6} className="mb-4 mb-md-0">
+              {/* Ukuran font dan margin disesuaikan agar lebih mirip figma */}
+              <h2 className="fw-bold mb-4 text-dark" style={{ fontSize: '2.5rem' }}>
+                Apa itu Ponti Jaya Motor?
+              </h2>
+              <p className="fs-5 text-secondary" style={{ lineHeight: '1.6' }}>
+                Toko sparepart daerah jakarta barat dengan jasa service yang memuaskan terutama dalam pengelolaan service bajaj disertai dengan kelengkapan produk di dalam toko.
+              </p>
+            </Col>
+            
+            {/* Kolom Kanan: Gambar */}
+            <Col md={6}>
+              <Image 
+                src="/images/hero/bengkel.jpg"
+                alt="Tentang Ponti Jaya Motor"
+                fluid
+                className="rounded-3" /* Shadow dihapus dari gambar, karena sudah ada di panel */
+              />
+            </Col>
+            
+          </Row>
         </div>
-      </section>
+      </Container>
 
     </main>
   );
