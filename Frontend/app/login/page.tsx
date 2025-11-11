@@ -18,18 +18,14 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
+    // Simulasi Login (admin / 123)
     if (username === "admin@pontijaya.com" && password === "123") {
-      // Berhasil login
       localStorage.setItem("isAdminLoggedIn", "true");
-      
-      // Arahkan ke dashboard
       router.push("/admin/dashboard");
     } else {
-      // Gagal login
       setError("Username atau password salah!");
       setIsLoading(false);
     }
-    
   };
 
   return (
@@ -74,6 +70,15 @@ export default function LoginPage() {
                 required
               />
             </div>
+
+            {/*Daftar*/}
+            <div className="text-center mb-3">
+              <span className="text-muted small">Belum punya akun? </span>
+              <Link href="/daftar" className="fw-bold small text-decoration-none" style={{ color: '#0d6efd' }}>
+                Silahkan Daftar
+              </Link>
+            </div>
+          
             <button 
               type="submit" 
               className="btn btn-primary w-100 py-3 fw-bold rounded-3"

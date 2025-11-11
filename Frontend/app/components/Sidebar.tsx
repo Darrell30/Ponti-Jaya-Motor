@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Package, ShoppingCart, LogOut, AlertTriangle } from "lucide-react";
+import { Home, Package, ShoppingCart, LogOut, AlertTriangle, Users } from "lucide-react"; 
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -55,7 +55,16 @@ export default function AdminSidebar() {
               Pesanan
             </Link>
 
-            {/* TOMBOL KELUAR: mt-4 dihapus, diganti mb-2 agar jaraknya sama */}
+            <Link
+              href="/admin/pengguna"
+              className={`nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 nav-link-custom ${
+                pathname === "/admin/pengguna" ? "active" : ""
+              }`}
+            >
+              <Users size={20} />
+              Pengguna
+            </Link>
+
             <button 
               onClick={handleLogoutClick} 
               className="nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 w-100 text-start nav-link-logout border-0 bg-transparent"
@@ -67,7 +76,7 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      {/* POP-UP MODAL */}
+      {/* pop up */}
       {showLogoutModal && (
         <div 
           className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center" 

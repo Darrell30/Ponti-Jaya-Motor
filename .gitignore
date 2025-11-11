@@ -4,10 +4,12 @@
 /node_modules
 /Frontend/node_modules
 /Frontend/package-lock.json
+/Frontend/package.json
 /backend/package-lock.json
 /backend/node_modules
 /backend/.env
 /.pnp
+/package-lock.json
 .pnp.js
 .yarn/install-state.gz
 
