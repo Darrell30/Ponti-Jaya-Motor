@@ -192,3 +192,23 @@ a {
   border-color: #0a58ca;
   color: #fff;
 }
+
+/* ================================== */
+/* === Sticky Header Halaman Produk === */
+/* ================================== */
+.sticky-product-header {
+  position: sticky;
+  
+  /* REVISI: Ubah 56px menjadi 0 */
+  top: 0; 
+
+  background-color: #f8fafc; 
+  padding: 1rem 0;
+  z-index: 1019;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.navbar-brand-link {
+  cursor: pointer;
+  text-decoration: none; /* Memastikan tidak ada garis bawah */
+}

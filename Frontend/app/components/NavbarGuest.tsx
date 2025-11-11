@@ -9,7 +9,7 @@ function NavbarGuest() {
     <Navbar 
       bg="dark" 
       variant="dark" 
-      expand="lg" 
+      expand="lg"
       sticky="top"
     >
       <Container className="container-figma"> 
@@ -32,7 +32,7 @@ function NavbarGuest() {
             <Link href="/#jasa" className="nav-link mx-2">Jasa</Link>
             
             {/* Link "Sparepart" biarkan, karena ini halaman terpisah */}
-            <Link href="/sparepart" className="nav-link mx-2">Sparepart</Link> 
+            <Link href="/produk" className="nav-link mx-2">Produk</Link> 
             
             <Link href="/#hubungi" className="nav-link mx-2">Hubungi Kami</Link>
             {/* --- AKHIR PERUBAHAN --- */}

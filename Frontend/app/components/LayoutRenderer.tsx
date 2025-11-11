@@ -1,32 +1,36 @@
 // app/components/LayoutRenderer.tsx
-'use client'; // <-- Wajib, karena kita menggunakan hook
+'use client'; 
 
 import { usePathname } from 'next/navigation';
 import NavbarGuest from './NavbarGuest';
 import FooterGuest from './FooterGuest';
+import NavbarProdukGuest from './NavbarProdukGuest'; // <-- 1. IMPORT NAVBAR PRODUK
 
 export default function LayoutRenderer({ children }: { children: React.ReactNode }) {
-  // 1. Dapatkan path URL saat ini
   const pathname = usePathname();
-
-  // 2. Cek apakah ini halaman admin
-  //    startsWith() akan cocok untuk /admin, /admin/dashboard, /admin/products, dll.
   const isAdminPage = pathname.startsWith('/admin');
+  
+  // 2. TAMBAHKAN PENGECEKAN BARU INI
+  const isProdukPage = pathname.startsWith('/produk');
 
-  // 3. Logika Render Bersyarat
   if (isAdminPage) {
-    // Jika ini halaman admin, JANGAN tampilkan Navbar/Footer.
-    // Cukup render {children} (yaitu halaman adminnya)
+    // 3. Jika admin, jangan tampilkan layout
     return <>{children}</>;
   }
 
-  // 4. Jika BUKAN halaman admin, render layout publik yang lengkap
+  // 4. LOGIKA BARU UNTUK RENDER BERSYARAT
   return (
     <div className="d-flex flex-column" style={{ minHeight: '100vh' }}>
-      <NavbarGuest />
+      
+      {/* Jika ini halaman produk, tampilkan NavbarProdukGuest.
+        Jika tidak (misal: homepage), tampilkan NavbarGuest.
+      */}
+      {isProdukPage ? <NavbarProdukGuest /> : <NavbarGuest />}
+
       <main className="flex-grow-1">
         {children}
       </main>
+      
       <FooterGuest />
     </div>
   );
