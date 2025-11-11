@@ -10,7 +10,7 @@ export default function DaftarPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [kodeUser, setKodeUser] = useState("");
+  const [kodeUser, setKodeUser] = useState(""); // Ini akan jadi 'username'
   const [password, setPassword] = useState(""); 
   
   const [error, setError] = useState("");
@@ -18,7 +18,7 @@ export default function DaftarPage() {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // fungsi dumy kirim otp
+  // fungsi dummy kirim otp
   const handleKirimOtp = async () => {
     setIsSendingOtp(true);
     setError("");
@@ -34,25 +34,55 @@ export default function DaftarPage() {
     setIsSendingOtp(false);
   };
 
-  // --- FUNGSI DUMMY 2 DAFTAR
+  // --- FUNGSI DAFTAR (ASLI) ---
   const handleDaftar = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsRegistering(true);
     setError("");
     setMessage("");
 
-    console.log("DUMMY: Mendaftarkan:", { email, otp, kodeUser, password });
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // DUMMY
-    if (otp === "123456") {
-      // sucsess
-      setMessage("Pendaftaran berhasil! Mengalihkan ke halaman login...");
-      setTimeout(() => router.push("/login"), 2000); 
-    } else {
-      // gagal
+    // --- (Bagian ini dari kode lama Anda, kita pertahankan) ---
+    // Cek "dummy" OTP di sisi frontend
+    if (otp !== "123456") {
       setError("Kode OTP salah. (Hint: coba 123456)");
+      setIsRegistering(false);
+      return; // Berhenti jika OTP salah
+    }
+    // --- (Akhir bagian kode lama) ---
+
+
+    // --- INI BAGIAN BARU YANG MENGIRIM KE BACKEND ---
+    try {
+      // Pastikan URL-nya benar (http://localhost:5000)
+      const response = await fetch('http://localhost:5000/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Mengirim data yang bersih ke backend
+        // Perhatikan: kita memetakan 'kodeUser' ke 'username'
+        body: JSON.stringify({
+          username: kodeUser, 
+          email: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        // Gagal, tampilkan pesan error dari backend
+        setError(data.message || 'Terjadi kesalahan saat registrasi.');
+      } else {
+        // Sukses!
+        setMessage("Pendaftaran berhasil! Mengalihkan ke halaman login...");
+        setTimeout(() => router.push("/login"), 2000);
+      }
+
+    } catch (error) {
+      // Ini terjadi jika backend (port 5000) mati atau tidak bisa dijangkau
+      console.error('Fetch error:', error);
+      setError('Tidak dapat terhubung ke server. Coba lagi nanti.');
     }
 
     setIsRegistering(false);

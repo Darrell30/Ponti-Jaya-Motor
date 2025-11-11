@@ -5,10 +5,12 @@ const http = require('http');
 const mongoose = require('mongoose');
 const { v2: cloudinary } = require('cloudinary');
 const busboy = require('busboy'); // Diperlukan untuk /api/upload
+const bcrypt = require('bcryptjs'); // <-- BARU: Untuk hashing password
 
 // Impor Model
 const Sparepart = require('./models/sparepart'); 
 const Service = require('./models/service'); 
+const User = require('./models/User'); // <-- BARU: Impor model User
 
 // Variabel Lingkungan
 const PORT = process.env.PORT || 3000;
@@ -223,7 +225,56 @@ const server = http.createServer(async (req, res) => {
             sendResponse(res, 500, { success: false, message: 'Internal server error' });
         }
     }
-    // --- Endpoint Tidak Ditemukan ---
+
+    // --- BARU: RUTE REGISTRASI PENGGUNA ---
+    else if (url === '/api/register' && method === 'POST') {
+        
+        console.log('[0] Menerima request POST /api/register...'); 
+        
+        try {
+            // Menggunakan fungsi yang sudah ada untuk membaca body
+            const body = await getRequestBody(req); 
+            const { username, email, password } = body;
+
+            // Validasi input
+            if (!username || !email || !password) {
+                return sendResponse(res, 400, { success: false, message: 'Username, email, dan password wajib diisi' });
+            }
+
+            // Cek apakah email sudah ada
+            const existingUser = await User.findOne({ email: email });
+            if (existingUser) {
+                return sendResponse(res, 400, { success: false, message: 'Email sudah terdaftar' });
+            }
+
+            // Hash password
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+
+            // Buat user baru
+            const newUser = await User.create({
+                username,
+                email,
+                password: hashedPassword
+            });
+            
+            console.log(`[0] User baru berhasil dibuat: ${newUser.username}`);
+            
+            // Kirim respons sukses (tanpa mengirim balik password)
+            sendResponse(res, 201, { 
+                success: true, 
+                message: 'User berhasil dibuat', 
+                data: { userId: newUser._id, username: newUser.username } 
+            });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di /api/register:', error);
+            // Tangani error validasi Mongoose
+            const message = error.name === 'ValidationError' ? error.message : 'Server error saat membuat user';
+            sendResponse(res, 400, { success: false, message: message });
+        }
+    }
+
     else {
         sendResponse(res, 404, { success: false, message: 'Endpoint Not Found' });
     }
@@ -233,6 +284,6 @@ const server = http.createServer(async (req, res) => {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`🚀 Server running for Ponti Jaya Motor on http://localhost:${PORT}`);
-        console.log(`Endpoints: /api/spareparts, /api/services, /api/upload`);
+        console.log(`Endpoints: /api/spareparts, /api/services, /api/upload, /api/register`); // <-- BARU
     });
 });
