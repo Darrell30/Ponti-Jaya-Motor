@@ -1,0 +1,25 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend REST API for Ponti Jaya Motor using vanilla Node.js http module and Mongoose.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "nodejs",
+    "mongodb",
+    "mongoose",
+    "rest-api",
+    "vanilla-http"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "cloudinary": "^2.8.0",
+    "dotenv": "^16.4.5",
+    "mongoose": "^8.4.4"
+  }
+}

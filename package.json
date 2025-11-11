@@ -1,0 +1,25 @@
+{
+  "name": "ponti-jaya-motor",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix Frontend",
+    "dev:backend": "npm start --prefix backend",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm run build --prefix frontend",
+    "start": "npm start --prefix frontend",
+    "lint": "npm run lint --prefix frontend"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.8",
+    "lucide-react": "^0.553.0",
+    "react-bootstrap": "^2.10.10"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

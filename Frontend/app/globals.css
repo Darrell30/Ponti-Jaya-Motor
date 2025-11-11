@@ -1,33 +1,23 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* File: app/globals.css */
+
+/* CSS Reset Bawaan Anda & Font Default */
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  /* Untuk mengaktifkan smooth scroll */
+  scroll-behavior: smooth;
 }
 
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+  /* overflow-x: hidden; <-- DIHAPUS, INI MEMPERBAIKI STICKY NAVBAR */
+  font-family: 'Inter', sans-serif; /* Font ini akan ditimpa oleh Roboto dari layout.tsx, tapi tidak apa-apa */
+  background-color: #f8fafc; 
 }
 
 a {
@@ -35,8 +25,170 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* ================================== */
+/* === KODE KUSTOM KITA MULAI DARI SINI === */
+/* ================================== */
+
+/* Style untuk Sidebar Admin (jika ada) */
+.nav-link-custom {
+  color: #495057 !important; 
+  transition: all 0.2s ease-in-out;
+  font-weight: 500; 
+}
+.nav-link-custom:hover {
+  background-color: #0d6efd !important;
+  color: white !important; 
+  transform: translateX(5px); 
+}
+.nav-link-custom.active {
+  background-color: #0d6efd !important;
+  color: white !important;
+  box-shadow: 0 4px 6px -1px rgba(13, 110, 253, 0.2); 
+}
+.nav-link-logout {
+  color: #dc3545 !important; 
+  transition: all 0.2s ease-in-out;
+  font-weight: 500;
+}
+.nav-link-logout:hover {
+  background-color: red !important; 
+  color: white !important;
+  transform: translateX(5px);
+}
+
+/* Style Ikon Lingkaran di Footer */
+.btn-icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: white;
+  text-decoration: none;
+  font-size: 1.2rem;
+  transition: opacity 0.2s;
+}
+.btn-icon-circle:hover {
+  color: white;
+  opacity: 0.8;
+}
+
+/* Tombol Hero Section */
+.btn-hero-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+.btn-hero-primary:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+  color: #fff;
+}
+.btn-hero-secondary {
+  background-color: #fff;
+  border-color: #fff;
+  color: #0d6efd;
+}
+.btn-hero-secondary:hover {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+
+/* Tombol "Tambah" (Produk Card) */
+.btn-add-to-cart {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  height: 48px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem; 
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+.btn-add-to-cart:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+}
+
+/* Tombol "Hubungi Kami" (Jasa Card) */
+.btn-service-wa {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: max-content;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+.btn-service-wa:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+}
+
+/* Kustom Container Sesuai Figma (1720px) */
+/* Digunakan untuk Navbar & Footer */
+.container-figma {
+  --bs-gutter-x: 20px;
+  max-width: 1720px !important; 
+}
+
+/* Kustom Gutter Sesuai Figma (20px) */
+/* Digunakan untuk Row di dalam konten halaman */
+.g-custom-20 {
+  --bs-gutter-x: 20px; /* Jarak horizontal */
+  --bs-gutter-y: 20px; /* Jarak vertikal */
+}
+
+/* Panel "Tentang Kami" */
+.about-us-panel {
+  background-color: #fff; 
+  padding: 3rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); 
+}
+
+/* Tombol Kontak (WhatsApp & Email) */
+.btn-contact-whatsapp, .btn-contact-email {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50rem; /* rounded-pill */
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.btn-contact-whatsapp i, .btn-contact-email i {
+  font-size: 1.5rem;
+}
+
+.btn-contact-whatsapp {
+  background-color: #25D366;
+  border-color: #25D366;
+  color: #fff;
+}
+.btn-contact-whatsapp:hover {
+  background-color: #1EAD56;
+  border-color: #1EAD56;
+  color: #fff;
+}
+
+.btn-contact-email {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+.btn-contact-email:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+  color: #fff;
 }
