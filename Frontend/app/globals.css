@@ -1,14 +1,22 @@
+/* File: app/globals.css */
+
+/* CSS Reset Bawaan Anda & Font Default */
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
 }
 
+html {
+  /* Untuk mengaktifkan smooth scroll */
+  scroll-behavior: smooth;
+}
+
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
-  font-family: 'Inter', sans-serif;
+  /* overflow-x: hidden; <-- DIHAPUS, INI MEMPERBAIKI STICKY NAVBAR */
+  font-family: 'Inter', sans-serif; /* Font ini akan ditimpa oleh Roboto dari layout.tsx, tapi tidak apa-apa */
   background-color: #f8fafc; 
 }
 
@@ -17,59 +25,56 @@ a {
   text-decoration: none;
 }
 
-/* 1. Style Dasar Link Menu */
+/* ================================== */
+/* === KODE KUSTOM KITA MULAI DARI SINI === */
+/* ================================== */
+
+/* Style untuk Sidebar Admin (jika ada) */
 .nav-link-custom {
   color: #495057 !important; 
   transition: all 0.2s ease-in-out;
   font-weight: 500; 
 }
-
-/* 2. Efek HOVER */
 .nav-link-custom:hover {
   background-color: #0d6efd !important;
   color: white !important; 
   transform: translateX(5px); 
 }
-
-/* 3. State ACTIVE */
 .nav-link-custom.active {
   background-color: #0d6efd !important;
   color: white !important;
   box-shadow: 0 4px 6px -1px rgba(13, 110, 253, 0.2); 
 }
-
-/* 4. Khusus Tombol KELUAR */
 .nav-link-logout {
   color: #dc3545 !important; 
   transition: all 0.2s ease-in-out;
   font-weight: 500;
 }
-
-/* Efek HOVER untuk tombol Keluar  */
 .nav-link-logout:hover {
   background-color: red !important; 
   color: white !important;
   transform: translateX(5px);
 }
 
+/* Style Ikon Lingkaran di Footer */
 .btn-icon-circle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;  /* Sesuaikan ukuran */
-  height: 40px; /* Sesuaikan ukuran */
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   color: white;
   text-decoration: none;
-  font-size: 1.2rem; /* Sesuaikan ukuran ikon */
+  font-size: 1.2rem;
   transition: opacity 0.2s;
 }
-
 .btn-icon-circle:hover {
   color: white;
   opacity: 0.8;
 }
 
+/* Tombol Hero Section */
 .btn-hero-primary {
   background-color: #0d6efd;
   border-color: #0d6efd;
@@ -80,30 +85,28 @@ a {
   border-color: #0a58ca;
   color: #fff;
 }
-
 .btn-hero-secondary {
   background-color: #fff;
   border-color: #fff;
-  color: #0d6efd; /* Teks biru */
+  color: #0d6efd;
 }
 .btn-hero-secondary:hover {
   background-color: #0d6efd;
   border-color: #0d6efd;
-  color: #fff; /* Teks jadi putih */
+  color: #fff;
 }
 
+/* Tombol "Tambah" (Produk Card) */
 .btn-add-to-cart {
   background-color: #0d6efd;
   border-color: #0d6efd;
   height: 48px;
   font-size: 1.2rem;
   font-weight: bold;
-  
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem; 
-  
   transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 .btn-add-to-cart:hover {
@@ -111,6 +114,7 @@ a {
   border-color: #0a58ca;
 }
 
+/* Tombol "Hubungi Kami" (Jasa Card) */
 .btn-service-wa {
   background-color: #0d6efd;
   border-color: #0d6efd;
@@ -121,7 +125,6 @@ a {
   align-items: center;
   gap: 0.5rem;
   width: max-content;
-  
   transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 .btn-service-wa:hover {
@@ -129,25 +132,63 @@ a {
   border-color: #0a58ca;
 }
 
-/* === Kustom Container Sesuai Figma (1720px) === */
+/* Kustom Container Sesuai Figma (1720px) */
 /* Digunakan untuk Navbar & Footer */
 .container-figma {
   --bs-gutter-x: 20px;
   max-width: 1720px !important; 
 }
 
-/* === Kustom Gutter Sesuai Figma (20px) === */
+/* Kustom Gutter Sesuai Figma (20px) */
 /* Digunakan untuk Row di dalam konten halaman */
 .g-custom-20 {
   --bs-gutter-x: 20px; /* Jarak horizontal */
   --bs-gutter-y: 20px; /* Jarak vertikal */
 }
 
+/* Panel "Tentang Kami" */
 .about-us-panel {
-  background-color: #fff; /* Latar belakang panel putih */
-  padding: 3rem;           /* Padding di dalam panel (sesuaikan jika perlu) */
-  border-radius: 0.5rem;   /* Sesuai dengan rounded-3 Bootstrap */
-  
-  /* Shadow-sm standar Bootstrap */
+  background-color: #fff; 
+  padding: 3rem;
+  border-radius: 0.5rem;
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); 
+}
+
+/* Tombol Kontak (WhatsApp & Email) */
+.btn-contact-whatsapp, .btn-contact-email {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50rem; /* rounded-pill */
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.btn-contact-whatsapp i, .btn-contact-email i {
+  font-size: 1.5rem;
+}
+
+.btn-contact-whatsapp {
+  background-color: #25D366;
+  border-color: #25D366;
+  color: #fff;
+}
+.btn-contact-whatsapp:hover {
+  background-color: #1EAD56;
+  border-color: #1EAD56;
+  color: #fff;
+}
+
+.btn-contact-email {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+.btn-contact-email:hover {
+  background-color: #0a58ca;
+  border-color: #0a58ca;
+  color: #fff;
 }

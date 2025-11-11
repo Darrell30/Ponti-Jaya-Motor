@@ -1,15 +1,14 @@
 // app/layout.tsx
 
-// 1. IMPORT SEMUA YANG KITA PERLUKAN
 import type { Metadata } from 'next';
-import { Roboto } from 'next/font/google'; // <-- FONT ROBOTO
+import { Roboto } from 'next/font/google';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap-icons/font/bootstrap-icons.css'; // <-- ICON BOOTSTRAP
-import NavbarGuest from './components/NavbarGuest'; // <-- IMPORT NAVBAR
-import FooterGuest from './components/FooterGuest'; // <-- IMPORT FOOTER
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import './globals.css';
+// 1. Hapus import NavbarGuest dan FooterGuest
+// 2. Import LayoutRenderer yang baru
+import LayoutRenderer from './components/LayoutRenderer';
 
-// 2. INISIASI FONT ROBOTO
 const roboto = Roboto({
   subsets: ['latin'],
   weight: ['400', '500', '700', '900'] 
@@ -27,28 +26,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      {/* 3. TERAPKAN FONT & SUPPRESS WARNING */}
       <body 
         className={roboto.className} 
         suppressHydrationWarning={true}
       >
-        {/* 4. BUAT STRUKTUR STICKY FOOTER */}
-        <div className="d-flex flex-column" style={{ minHeight: '100vh' }}>
-          
-          {/* 5. LETAKKAN NAVBAR DI SINI (DI ATAS) */}
-          <NavbarGuest />
-          
-          {/* 6. {children} ADALAH KONTEN HALAMAN ANDA (app/page.tsx)
-               Biarkan ini di tengah, dibungkus <main>
-          */}
-          <main className="flex-grow-1">
-            {children}
-          </main>
-          
-          {/* 7. LETAKKAN FOOTER DI SINI (DI BAWAH) */}
-          <FooterGuest />
-
-        </div>
+        {/* 3. Panggil LayoutRenderer di sini.
+             Dia yang akan memutuskan apakah Navbar/Footer perlu tampil.
+        */}
+        <LayoutRenderer>
+          {children}
+        </LayoutRenderer>
       </body>
     </html>
   );

@@ -23,7 +23,8 @@ const featuredProductNames = [
   "Kampas Rem",
   "Seal Lahar Bambu",
   "Klahar Roda",
-  "Tabung Central"
+  "Tabung Central",
+  "Veleg"
 ];
 
 // Daftar NAMA produk untuk "Produk Terlaris"
@@ -32,14 +33,14 @@ const bestSellingProductNames = [
   "Kampas Rem", 
   "Klahar Roda",
   "Master Central",
-  "Selang Rem",
+  "Tabung Central",
 ];
 
 // MASIH DATA DUMMY
 const services = [
-  { name: "Servis Rutin", img: "/images/jasa/servis-rutin.jpg" },
-  { name: "Ganti Sparepart", img: "/images/jasa/ganti-sparepart.jpg" },
-  { name: "Turun Mesin", img: "/images/jasa/turun-mesin.jpg" },
+  { name: "Servis Rem", img: "/images/jasa/servis rem.jpg" },
+  { name: "Ganti Sparepart", img: "/images/jasa/ganti sparepart.jpg" },
+  { name: "Ganti Oli", img: "/images/jasa/ganti oli.jpg" },
 ];
 
 
@@ -97,6 +98,7 @@ export default function Home() {
       
       {/* === 1. HERO SECTION === */}
       <div
+        id="hero" // ID untuk scroll-to
         className="text-center text-white"
         style={{
           backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/images/hero/bengkel.jpg')`,
@@ -114,22 +116,22 @@ export default function Home() {
                 Website untuk melihat katalog produk berupa sparepart kendaraan roda tiga, juga menyediakan jasa servis.
               </p>
               <div className="d-flex gap-3 justify-content-center">
-                <Button
-                  as={Link}
-                  href="/sparepart"
-                  size="lg"
-                  className="px-4 fw-bold rounded-3 btn-hero-primary"
-                >
-                  Lihat Katalog
-                </Button>
-                <Button
-                  as={Link}
-                  href="/jasa"
-                  size="lg"
-                  className="px-4 fw-bold rounded-3 btn-hero-secondary"
-                >
-                  Jasa Servis
-                </Button>
+                <Link href="/sparepart" passHref legacyBehavior>
+                  <Button
+                    size="lg"
+                    className="px-4 fw-bold rounded-3 btn-hero-primary"
+                  >
+                    Lihat Katalog
+                  </Button>
+                </Link>
+                <Link href="/#jasa" passHref legacyBehavior>
+                  <Button
+                    size="lg"
+                    className="px-4 fw-bold rounded-3 btn-hero-secondary"
+                  >
+                    Jasa Servis
+                  </Button>
+                </Link>
               </div>
             </Col>
           </Row>
@@ -221,7 +223,7 @@ export default function Home() {
 
       
       {/* === 4. JASA KAMI (Masih Dummy) === */}
-      <Container as="section" className="py-5">
+      <Container as="section" className="py-5" id="jasa"> {/* ID untuk scroll-to */}
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         
         <Row className="g-custom-20 row-cols-1 row-cols-md-3">
@@ -257,22 +259,12 @@ export default function Home() {
         </Row>
       </Container>
       
-      {/* ================================== */}
-      {/* === 5. SECTION TENTANG KAMI (REVISI) === */}
-      {/* ================================== */}
-      {/* Container ini tetap bg-light (latar abu-abu) */}
+      {/* === 5. SECTION TENTANG KAMI === */}
       <Container as="section" className="py-5 bg-light">
-        
-        {/* REVISI: 
-          Kita tambahkan <div> ini dengan class "about-us-panel"
-          untuk membuat panel putih di atas latar abu-abu.
-        */}
         <div className="about-us-panel">
           <Row className="align-items-center g-custom-20">
             
-            {/* Kolom Kiri: Teks */}
             <Col md={6} className="mb-4 mb-md-0">
-              {/* Ukuran font dan margin disesuaikan agar lebih mirip figma */}
               <h2 className="fw-bold mb-4 text-dark" style={{ fontSize: '2.5rem' }}>
                 Apa itu Ponti Jaya Motor?
               </h2>
@@ -281,18 +273,61 @@ export default function Home() {
               </p>
             </Col>
             
-            {/* Kolom Kanan: Gambar */}
             <Col md={6}>
               <Image 
                 src="/images/hero/bengkel.jpg"
                 alt="Tentang Ponti Jaya Motor"
                 fluid
-                className="rounded-3" /* Shadow dihapus dari gambar, karena sudah ada di panel */
+                className="rounded-3"
               />
             </Col>
             
           </Row>
         </div>
+      </Container>
+
+
+      {/* === 6. SECTION HUBUNGI KAMI === */}
+      <Container as="section" className="py-5" id="hubungi"> {/* ID untuk scroll-to */}
+        <Row className="align-items-center g-custom-20">
+          
+          <Col md={6} className="mb-4 mb-md-0">
+            <Image 
+              src="/images/kontak/hubungi.jpeg" // Pastikan nama file ini benar
+              alt="Hubungi Kami"
+              fluid
+              className="rounded-3"
+            />
+          </Col>
+
+          <Col md={6} className="ps-md-5">
+            <h2 className="fw-bold mb-3 text-dark" style={{ fontSize: '2.5rem' }}>
+              Hubungi Kami
+            </h2>
+            <p className="fs-5 text-secondary mb-4" style={{ lineHeight: '1.6' }}>
+              Jika ada pertanyaan mengenai sparepart atau jasa, silahkan hubungi kami.
+            </p>
+            <div className="d-flex flex-wrap gap-3">
+              <Button 
+                variant="primary" 
+                className="btn-contact-whatsapp"
+                href="#" // Ganti dengan link WA Anda
+              >
+                <i className="bi bi-whatsapp"></i>
+                WhatsApp
+              </Button>
+              <Button 
+                variant="primary" 
+                className="btn-contact-email"
+                href="#" // Ganti dengan link mailto: Anda
+              >
+                <i className="bi bi-envelope-fill"></i>
+                Email
+              </Button>
+            </div>
+          </Col>
+          
+        </Row>
       </Container>
 
     </main>
