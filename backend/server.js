@@ -4,13 +4,14 @@ require('dotenv').config();
 const http = require('http');
 const mongoose = require('mongoose');
 const { v2: cloudinary } = require('cloudinary');
-const busboy = require('busboy'); // Diperlukan untuk /api/upload
-const bcrypt = require('bcryptjs'); // <-- BARU: Untuk hashing password
+const busboy = require('busboy');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 
-// Impor Model
 const Sparepart = require('./models/sparepart'); 
 const Service = require('./models/service'); 
-const User = require('./models/User'); // <-- BARU: Impor model User
+const User = require('./models/User'); 
+const Otp = require('./models/Otp'); 
 
 // Variabel Lingkungan
 const PORT = process.env.PORT || 3000;
@@ -18,7 +19,7 @@ const MONGO_URI = process.env.MONGO_URI;
 
 console.log('--- Server Start Info ---');
 console.log(`Port: ${PORT}`);
-console.log('MongoDB URI Status:', MONGO_URI ? 'LOADED' : 'NOT FOUND. Check .env file and variable name.');
+console.log('MongoDB URI Status:', MONGO_URI ? 'LOADED' : 'NOT FOUND.');
 console.log('-------------------------');
 
 // Konfigurasi Cloudinary
@@ -30,13 +31,30 @@ cloudinary.config({
 });
 console.log('✅ Cloudinary configured successfully!');
 
+// Konfigurasi Nodemailer
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS
+    }
+});
+
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('❌ Nodemailer config error:', error.message);
+        console.warn('Peringatan: Pastikan GMAIL_USER dan GMAIL_PASS (App Password) sudah benar di .env');
+    } else {
+        console.log('✅ Nodemailer (Email) configured successfully!');
+    }
+});
+
 // Koneksi ke MongoDB
 const connectDB = async () => {
     if (!MONGO_URI) {
         console.error('❌ MongoDB connection failed: MONGO_URI is undefined. Please check your .env file.');
         process.exit(1);
     }
-    
     try {
         await mongoose.connect(MONGO_URI);
         console.log('✅ Connected to MongoDB successfully!');
@@ -75,17 +93,17 @@ const getRequestBody = (req) => {
     });
 };
 
+
 // Logika Utama Server
 const server = http.createServer(async (req, res) => {
     const { url, method } = req;
     
-    // Handle CORS preflight
     if (method === 'OPTIONS') {
         sendResponse(res, 204, '');
         return;
     }
 
-    // --- Routing Sparepart (DENGAN LOG DEBUG) ---
+    // Routing Sparepart 
     if (url.startsWith('/api/spareparts')) {
         
         // GET /api/spareparts (Get All)
@@ -95,15 +113,10 @@ const server = http.createServer(async (req, res) => {
             
             try {
                 console.log('[0] Mencoba menjalankan Sparepart.find()...');
-                
                 const spareparts = await Sparepart.find({});
-                
                 console.log(`[0] Berhasil! Ditemukan ${spareparts.length} sparepart.`);
-
                 sendResponse(res, 200, { success: true, count: spareparts.length, data: spareparts });
-                
                 console.log('[0] Respons 200 berhasil dikirim.');
-
             } catch (error) {
                 console.error('[0] CRITICAL ERROR di /api/spareparts:', error);
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving spareparts' });
@@ -135,7 +148,7 @@ const server = http.createServer(async (req, res) => {
         }
     } 
     
-    // --- Routing Jasa (Services) - BLOK YANG DIPERBAIKI ---
+    // Routing Jasa (Services)
     else if (url.startsWith('/api/services')) {
         
         // GET /api/services (Get All)
@@ -144,7 +157,6 @@ const server = http.createServer(async (req, res) => {
                 const services = await Service.find({});
                 sendResponse(res, 200, { success: true, count: services.length, data: services });
             } catch (error) {
-                // INI BAGIAN YANG DIPERBAIKI
                 console.error('[0] ERROR di /api/services (GET):', error);
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving services' });
             }
@@ -156,7 +168,6 @@ const server = http.createServer(async (req, res) => {
                 const newService = await Service.create(body);
                 sendResponse(res, 201, { success: true, message: 'Service created', data: newService });
             } catch (error) {
-                // INI BAGIAN YANG DIPERBAIKI
                 const message = error.name === 'ValidationError' ? error.message : 'Server error creating service';
                 sendResponse(res, 400, { success: false, message: message });
             }
@@ -175,9 +186,8 @@ const server = http.createServer(async (req, res) => {
             }
         }
     }
-    // --- AKHIR BLOK YANG DIPERBAIKI ---
 
-    // --- UPLOAD GAMBAR ---
+    //UPLOAD GAMBAR
     else if (url === '/api/upload' && method === 'POST') {
         
         if (!req.headers['content-type'] || !req.headers['content-type'].startsWith('multipart/form-data')) {
@@ -226,25 +236,75 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // --- BARU: RUTE REGISTRASI PENGGUNA ---
+    //RUTE KIRIM OTP 
+    else if (url === '/api/send-otp' && method === 'POST') {
+        console.log('[0] Menerima request POST /api/send-otp...');
+        try {
+            const { email } = await getRequestBody(req);
+            if (!email) {
+                return sendResponse(res, 400, { success: false, message: 'Email wajib diisi' });
+            }
+
+            // Cek apakah user dengan email ini sudah ada
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+                return sendResponse(res, 400, { success: false, message: 'Email sudah terdaftar' });
+            }
+
+            // Hapus OTP lama (jika ada) untuk email ini
+            await Otp.deleteMany({ email });
+
+            // Buat 6 digit OTP
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+            // Kirim email
+            await transporter.sendMail({
+                from: `"Ponti Jaya Motor" <${process.env.GMAIL_USER}>`,
+                to: email,
+                subject: 'Kode Verifikasi Anda - Ponti Jaya Motor',
+                text: `Kode verifikasi Anda adalah: ${otp}`,
+                html: `<b>Kode verifikasi Anda adalah: ${otp}</b><br><p>Kode ini akan kedaluwarsa dalam 5 menit.</p>`
+            });
+
+            // Simpan OTP ke database
+            await Otp.create({ email, otp });
+
+            console.log(`[0] OTP ${otp} berhasil dikirim ke ${email}`);
+            sendResponse(res, 200, { success: true, message: `OTP telah dikirim ke ${email}` });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di /api/send-otp:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal mengirim OTP' });
+        }
+    }
+
+    //RUTE REGISTRASI PENGGUNA 
     else if (url === '/api/register' && method === 'POST') {
         
         console.log('[0] Menerima request POST /api/register...'); 
         
         try {
-            // Menggunakan fungsi yang sudah ada untuk membaca body
             const body = await getRequestBody(req); 
-            const { username, email, password } = body;
+            const { username, email, password, otp } = body; //SEKARANG MEMBUTUHKAN OTP
 
             // Validasi input
-            if (!username || !email || !password) {
-                return sendResponse(res, 400, { success: false, message: 'Username, email, dan password wajib diisi' });
+            if (!username || !email || !password || !otp) {
+                return sendResponse(res, 400, { success: false, message: 'Semua field (termasuk OTP) wajib diisi' });
             }
 
-            // Cek apakah email sudah ada
-            const existingUser = await User.findOne({ email: email });
+            // VERIFIKASI OTP
+            const validOtp = await Otp.findOne({ email: email, otp: otp });
+            if (!validOtp) {
+                // OTP tidak ditemukan atau salah
+                return sendResponse(res, 400, { success: false, message: 'Kode OTP salah atau telah kedaluwarsa' });
+            }
+            //AKHIR VERIFIKASI OTP
+
+            // Cek apakah email atau username sudah ada (redundant, tapi bagus untuk keamanan)
+            const existingUser = await User.findOne({ $or: [{ email: email }, { username: username }] });
             if (existingUser) {
-                return sendResponse(res, 400, { success: false, message: 'Email sudah terdaftar' });
+                const message = existingUser.email === email ? 'Email sudah terdaftar' : 'Username sudah digunakan';
+                return sendResponse(res, 400, { success: false, message: message });
             }
 
             // Hash password
@@ -259,8 +319,10 @@ const server = http.createServer(async (req, res) => {
             });
             
             console.log(`[0] User baru berhasil dibuat: ${newUser.username}`);
+
+            // Hapus OTP setelah berhasil digunakan
+            await Otp.deleteMany({ email });
             
-            // Kirim respons sukses (tanpa mengirim balik password)
             sendResponse(res, 201, { 
                 success: true, 
                 message: 'User berhasil dibuat', 
@@ -269,7 +331,6 @@ const server = http.createServer(async (req, res) => {
 
         } catch (error) {
             console.error('[0] CRITICAL ERROR di /api/register:', error);
-            // Tangani error validasi Mongoose
             const message = error.name === 'ValidationError' ? error.message : 'Server error saat membuat user';
             sendResponse(res, 400, { success: false, message: message });
         }
@@ -284,6 +345,6 @@ const server = http.createServer(async (req, res) => {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`🚀 Server running for Ponti Jaya Motor on http://localhost:${PORT}`);
-        console.log(`Endpoints: /api/spareparts, /api/services, /api/upload, /api/register`); // <-- BARU
+        console.log(`Endpoints: /api/spareparts, /api/services, /api/upload, /api/register, /api/send-otp`);
     });
 });
