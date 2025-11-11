@@ -17,6 +17,7 @@
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",
     "cloudinary": "^2.8.0",
     "dotenv": "^16.4.5",
