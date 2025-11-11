@@ -11,13 +11,11 @@ function NavbarGuest() {
       variant="dark" 
       expand="lg" 
       sticky="top"
-      // Asumsi font Roboto sudah di-apply di layout.tsx (Opsi 1)
     >
-      <Container className='container-figma'>
-        {/* Brand/Logo di Kiri */}
+      <Container className="container-figma"> 
         <Navbar.Brand 
           as={Link} 
-          href="/" 
+          href="/" // Link logo biarkan ke "/"
           className="fw-bold"
           style={{ letterSpacing: '1px' }}
         >
@@ -27,14 +25,20 @@ function NavbarGuest() {
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         
         <Navbar.Collapse id="basic-navbar-nav">
-          {/* Navigasi Link & Tombol di Kanan */}
           <Nav className="ms-auto align-items-center">
-            <Link href="/" className="nav-link mx-2">Home</Link>
-            <Link href="/jasa" className="nav-link mx-2">Jasa</Link>
-            <Link href="/sparepart" className="nav-link mx-2">Sparepart</Link>
-            <Link href="/kontak" className="nav-link mx-2">Hubungi Kami</Link>
+            
+            {/* --- INI PERUBAHANNYA --- */}
+            <Link href="/#hero" className="nav-link mx-2">Home</Link>
+            <Link href="/#jasa" className="nav-link mx-2">Jasa</Link>
+            
+            {/* Link "Sparepart" biarkan, karena ini halaman terpisah */}
+            <Link href="/sparepart" className="nav-link mx-2">Sparepart</Link> 
+            
+            <Link href="/#hubungi" className="nav-link mx-2">Hubungi Kami</Link>
+            {/* --- AKHIR PERUBAHAN --- */}
+
             <Button 
-              as={Link} // 'as={Link}' di Button biasanya aman dari error TS
+              as={Link} 
               href="/login" 
               variant="primary" 
               className="ms-3"
