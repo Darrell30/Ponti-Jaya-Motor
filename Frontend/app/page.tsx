@@ -116,7 +116,7 @@ export default function Home() {
                 Website untuk melihat katalog produk berupa sparepart kendaraan roda tiga, juga menyediakan jasa servis.
               </p>
               <div className="d-flex gap-3 justify-content-center">
-                <Link href="/sparepart" passHref legacyBehavior>
+                <Link href="/produk" passHref legacyBehavior>
                   <Button
                     size="lg"
                     className="px-4 fw-bold rounded-3 btn-hero-primary"
