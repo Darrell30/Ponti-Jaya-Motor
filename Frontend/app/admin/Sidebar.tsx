@@ -1,78 +1,97 @@
-// app/components/admin/Sidebar.tsx
+// app/components/Sidebar.tsx
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, Package, ShoppingCart, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, Package, ShoppingCart, LogOut, AlertTriangle } from "lucide-react";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const menuItems = [
-    { name: "Home", href: "/admin/dashboard", icon: Home },
-    { name: "Produk", href: "/admin/produk", icon: Package },
-    { name: "Pesanan", href: "/admin/pesanan-produk", icon: ShoppingCart },
-  ];
+  const handleLogoutClick = () => setShowLogoutModal(true);
+  const handleCancelLogout = () => setShowLogoutModal(false);
+  const handleConfirmLogout = () => {
+    localStorage.removeItem("isAdminLoggedIn");
+    router.push("/");
+  };
 
   return (
     <>
-      {/* CSS Kustom untuk efek Hover Biru */}
-      <style jsx>{`
-        .nav-link-custom {
-          transition: all 0.2s ease-in-out;
-          color: #495057; /* Warna teks default (abu gelap) */
-        }
-        /* Saat di-hover, jadi biru backgroundnya dan teks putih */
-        .nav-link-custom:hover {
-          background-color: #0d6efd !important; /* Biru Bootstrap Primary */
-          color: white !important;
-        }
-        /* State aktif (sedang dibuka) */
-        .nav-link-custom.active {
-          background-color: #0d6efd !important;
-          color: white !important;
-        }
-        
-        /* Khusus tombol keluar, default merah, tapi hover biru sesuai request */
-        .nav-link-logout {
-           color: #dc3545; /* Merah default */
-           transition: all 0.2s ease-in-out;
-        }
-        .nav-link-logout:hover {
-           background-color: #0d6efd !important; /* Biru saat hover sesuai request */
-           color: white !important;
-        }
-      `}</style>
+      <h5 className="fw-bold mb-3 text-dark">Menu</h5>
 
       <div className="card border-0 shadow-sm p-3 rounded-4">
         <div className="card-body p-0">
-          <h6 className="fw-bold mb-3 px-3">Menu</h6>
-          
-          <div className="nav flex-column nav-pills" aria-orientation="vertical">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 nav-link-custom ${
-                    isActive ? "active" : ""
-                  }`}
-                >
-                  <item.icon size={20} />
-                  {item.name}
-                </Link>
-              );
-            })}
+          <div className="nav flex-column nav-pills">
+            <Link
+              href="/admin/dashboard"
+              className={`nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 nav-link-custom ${
+                pathname === "/admin/dashboard" ? "active" : ""
+              }`}
+            >
+              <Home size={20} />
+              Home
+            </Link>
 
-            {/* Tombol Keluar */}
-            <button className="nav-link d-flex align-items-center gap-3 px-3 py-3 mt-4 fw-medium rounded-3 w-100 text-start nav-link-logout">
+            <Link
+              href="/admin/produk"
+              className={`nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 nav-link-custom ${
+                pathname === "/admin/produk" ? "active" : ""
+              }`}
+            >
+              <Package size={20} />
+              Produk
+            </Link>
+
+            <Link
+              href="/admin/pesanan"
+              className={`nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 nav-link-custom ${
+                pathname === "/admin/pesanan" ? "active" : ""
+              }`}
+            >
+              <ShoppingCart size={20} />
+              Pesanan
+            </Link>
+
+            {/* TOMBOL KELUAR: mt-4 dihapus, diganti mb-2 agar jaraknya sama */}
+            <button 
+              onClick={handleLogoutClick} 
+              className="nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 w-100 text-start nav-link-logout border-0 bg-transparent"
+            >
                <LogOut size={20} />
                Keluar
             </button>
           </div>
         </div>
       </div>
+
+      {/* POP-UP MODAL */}
+      {showLogoutModal && (
+        <div 
+          className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center" 
+          style={{ zIndex: 9999, left: 0, top: 0 }}
+        >
+          <div className="card border-0 shadow-lg rounded-4 p-4 text-center" style={{ maxWidth: '320px', width: '90%' }}>
+            <div className="card-body p-2">
+              <div className="mb-3 text-warning">
+                <AlertTriangle size={48} />
+              </div>
+              <h5 className="fw-bold text-dark mb-2">Konfirmasi Keluar</h5>
+              <p className="text-muted mb-4">Apakah Anda yakin ingin keluar?</p>
+              <div className="d-flex gap-2 justify-content-center">
+                <button onClick={handleCancelLogout} className="btn btn-light fw-bold rounded-pill px-4 flex-fill">
+                  Batal
+                </button>
+                <button onClick={handleConfirmLogout} className="btn btn-danger fw-bold rounded-pill px-4 flex-fill">
+                  Ya, Keluar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
