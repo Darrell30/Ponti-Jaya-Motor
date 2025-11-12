@@ -8,9 +8,10 @@ const busboy = require('busboy');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 
+// Impor Model
 const Sparepart = require('./models/sparepart'); 
 const Service = require('./models/service'); 
-const User = require('./models/User'); 
+const User = require('./models/User');
 const Otp = require('./models/Otp'); 
 
 // Variabel Lingkungan
@@ -64,7 +65,7 @@ const connectDB = async () => {
     }
 };
 
-// Fungsi utilitas untuk mengirim respons JSON
+// Fungsi utilitas (sendResponse & getRequestBody)
 const sendResponse = (res, statusCode, data) => {
     res.writeHead(statusCode, { 
         'Content-Type': 'application/json',
@@ -75,7 +76,6 @@ const sendResponse = (res, statusCode, data) => {
     res.end(JSON.stringify(data));
 };
 
-// Fungsi utilitas untuk membaca body JSON
 const getRequestBody = (req) => {
     return new Promise((resolve) => {
         let body = '';
@@ -103,7 +103,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Routing Sparepart 
+    //Routing Sparepart 
     if (url.startsWith('/api/spareparts')) {
         
         // GET /api/spareparts (Get All)
@@ -148,7 +148,7 @@ const server = http.createServer(async (req, res) => {
         }
     } 
     
-    // Routing Jasa (Services)
+    // --- Routing Jasa (Services)
     else if (url.startsWith('/api/services')) {
         
         // GET /api/services (Get All)
@@ -187,7 +187,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    //UPLOAD GAMBAR
+    // --- UPLOAD GAMBAR ---
     else if (url === '/api/upload' && method === 'POST') {
         
         if (!req.headers['content-type'] || !req.headers['content-type'].startsWith('multipart/form-data')) {
@@ -236,7 +236,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    //RUTE KIRIM OTP 
+    // --- RUTE KIRIM OTP ---
     else if (url === '/api/send-otp' && method === 'POST') {
         console.log('[0] Menerima request POST /api/send-otp...');
         try {
@@ -244,63 +244,64 @@ const server = http.createServer(async (req, res) => {
             if (!email) {
                 return sendResponse(res, 400, { success: false, message: 'Email wajib diisi' });
             }
-
-            // Cek apakah user dengan email ini sudah ada
             const existingUser = await User.findOne({ email });
             if (existingUser) {
                 return sendResponse(res, 400, { success: false, message: 'Email sudah terdaftar' });
             }
-
-            // Hapus OTP lama (jika ada) untuk email ini
             await Otp.deleteMany({ email });
-
-            // Buat 6 digit OTP
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-            // Kirim email
             await transporter.sendMail({
                 from: `"Ponti Jaya Motor" <${process.env.GMAIL_USER}>`,
                 to: email,
                 subject: 'Kode Verifikasi Anda - Ponti Jaya Motor',
                 text: `Kode verifikasi Anda adalah: ${otp}`,
-                html: `<b>Kode verifikasi Anda adalah: ${otp}</b><br><p>Kode ini akan kedaluwarsa dalam 5 menit.</p>`
+                html: `<b>Kode verifikasi Anda adalah: ${otp}</b><br><p>Kode ini akan kedaluwarsa dalam 30 detik.</p>` // Teks email diubah ke 30 detik
             });
-
-            // Simpan OTP ke database
             await Otp.create({ email, otp });
-
             console.log(`[0] OTP ${otp} berhasil dikirim ke ${email}`);
             sendResponse(res, 200, { success: true, message: `OTP telah dikirim ke ${email}` });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di /api/send-otp:', error);
             sendResponse(res, 500, { success: false, message: 'Gagal mengirim OTP' });
         }
     }
 
-    //RUTE REGISTRASI PENGGUNA 
+    // --- RUTE REGISTRASI PENGGUNA (DENGAN PERBAIKAN WAKTU OTP) ---
     else if (url === '/api/register' && method === 'POST') {
         
         console.log('[0] Menerima request POST /api/register...'); 
         
         try {
             const body = await getRequestBody(req); 
-            const { username, email, password, otp } = body; //SEKARANG MEMBUTUHKAN OTP
+            const { username, email, password, otp } = body;
 
-            // Validasi input
             if (!username || !email || !password || !otp) {
                 return sendResponse(res, 400, { success: false, message: 'Semua field (termasuk OTP) wajib diisi' });
             }
 
-            // VERIFIKASI OTP
-            const validOtp = await Otp.findOne({ email: email, otp: otp });
+            // --- PERBAIKAN LOGIKA VERIFIKASI OTP ---
+            
+            // 1. Tentukan batas waktu (30 detik yang lalu dari sekarang)
+            // 30 * 1000 = 30000 milidetik
+            const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+
+            // 2. Cari OTP yang:
+            //    a) Cocok emailnya
+            //    b) Cocok OTP-nya
+            //    c) Dibuat SETELAH (greater than) 30 detik yang lalu
+            const validOtp = await Otp.findOne({
+                email: email,
+                otp: otp,
+                createdAt: { $gte: thirtySecondsAgo } 
+            });
+
             if (!validOtp) {
-                // OTP tidak ditemukan atau salah
+                // Jika tidak ditemukan, berarti OTP-nya salah ATAU sudah kedaluwarsa
                 return sendResponse(res, 400, { success: false, message: 'Kode OTP salah atau telah kedaluwarsa' });
             }
-            //AKHIR VERIFIKASI OTP
+            // --- AKHIR PERBAIKAN LOGIKA ---
 
-            // Cek apakah email atau username sudah ada (redundant, tapi bagus untuk keamanan)
+            // Cek user
             const existingUser = await User.findOne({ $or: [{ email: email }, { username: username }] });
             if (existingUser) {
                 const message = existingUser.email === email ? 'Email sudah terdaftar' : 'Username sudah digunakan';
