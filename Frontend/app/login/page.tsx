@@ -4,58 +4,62 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { Lock, Loader2 } from "lucide-react"; // <-- Menambahkan Loader2
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  // 'identifier' akan menyimpan username atau email
+  const [identifier, setIdentifier] = useState(""); 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // ===================================
-  // === FUNGSI LOGIN DENGAN FETCH ASLI ===
+  // === FUNGSI LOGIN (DIPERBAIKI) ===
   // ===================================
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    console.log("[FRONTEND] Mencoba login dengan:", username); // <-- DEBUG BARU DI FRONTEND
+    console.log("[FRONTEND] Mencoba login dengan:", identifier); 
 
     try {
       // 1. Kirim data login ke backend Anda
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      // --- PERBAIKAN: Endpoint diubah ke /api/login ---
+      const response = await fetch('http://localhost:5000/api/login', { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        // 'username' di sini bisa berisi username ATAU email
-        body: JSON.stringify({ username, password }), 
+        // 'identifier' dikirim (sesuai harapan backend)
+        body: JSON.stringify({ identifier, password }), 
       });
 
-      console.log("[FRONTEND] Menerima respons dari server:", response.status); // <-- DEBUG BARU DI FRONTEND
+      console.log("[FRONTEND] Menerima respons dari server:", response.status);
 
       const data = await response.json();
 
       if (!response.ok) {
-        // Jika server merespons dengan error (misal: 401, 404, 500)
         throw new Error(data.message || 'Terjadi kesalahan');
       }
 
-      // 2. Jika login SUKSES (backend mengirim { success: true, ... })
+      // 2. Jika login SUKSES
       if (data.success) {
-        const userRole = data.user.role; // Dapatkan role dari backend
+        // --- PERBAIKAN: Jalur data disesuaikan menjadi data.data.role ---
+        const userRole = data.data.role; 
 
         // 3. Cek Role (Peran)
         if (userRole === 'admin') {
-          localStorage.setItem("isAdminLoggedIn", "true");
-          localStorage.removeItem("isUserLoggedIn");
+          // localStorage.setItem("isAdminLoggedIn", "true");
+          // localStorage.removeItem("isUserLoggedIn");
+          console.log("Admin login berhasil, mengalihkan ke dashboard...");
           router.push("/admin/dashboard");
         
         } else if (userRole === 'user') {
-          localStorage.setItem("isUserLoggedIn", "true");
-          localStorage.removeItem("isAdminLoggedIn");
+          // localStorage.setItem("isUserLoggedIn", "true");
+          // localStorage.removeItem("isAdminLoggedIn");
+          console.log("User login berhasil, mengalihkan ke home...");
           router.push("/"); // Arahkan ke homepage
         
         } else {
@@ -63,12 +67,10 @@ export default function LoginPage() {
         }
 
       } else {
-        // Jika backend mengirim { success: false, message: '...' }
         setError(data.message || "Username atau password salah!");
       }
 
     } catch (err: any) {
-      // 4. Tangkap error (jaringan gagal, server mati, dll)
       console.error("[FRONTEND] Login fetch error:", err);
       setError(err.message || "Tidak dapat terhubung ke server.");
     } finally {
@@ -103,8 +105,8 @@ export default function LoginPage() {
                 type="text" 
                 className="form-control form-control-lg fs-6 bg-light border-0"
                 placeholder="Masukkan username atau email"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={identifier} // <-- Diubah dari username
+                onChange={(e) => setIdentifier(e.target.value)} // <-- Diubah dari setUsername
                 required
               />
             </div>
@@ -129,11 +131,16 @@ export default function LoginPage() {
           
             <button 
               type="submit" 
-              className="btn btn-primary w-100 py-3 fw-bold rounded-3"
+              className="btn btn-primary w-100 py-3 fw-bold rounded-3 d-flex align-items-center justify-content-center"
               style={{ backgroundColor: '#0d6efd' }}
               disabled={isLoading}
             >
-              {isLoading ? "Memproses..." : "Masuk"}
+              {isLoading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin me-2" />
+                  Memproses...
+                </>
+              ) : "Masuk"}
             </button>
           </form>
         </div>
