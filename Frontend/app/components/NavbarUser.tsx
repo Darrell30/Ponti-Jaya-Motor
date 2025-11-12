@@ -5,6 +5,9 @@ import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
 import Link from 'next/link';
 
 function NavbarUser() {
+  // Nanti, Anda akan mendapatkan nama user ini dari state/session
+  const userName = "Delvin Sulistio"; 
+
   return (
     <Navbar 
       bg="dark" 
@@ -32,9 +35,7 @@ function NavbarUser() {
             <Link href="/produk" className="nav-link mx-2">Produk</Link> 
             <Link href="/#hubungi" className="nav-link mx-2">Hubungi Kami</Link>
             
-            {/* --- INI PERUBAHANNYA --- */}
             <NavDropdown 
-              // Tombol ikon profil biru
               title={
                 <div 
                   className="bg-primary rounded-circle d-flex align-items-center justify-content-center" 
@@ -45,16 +46,27 @@ function NavbarUser() {
               } 
               id="user-dropdown" 
               align="end"
-              className="user-avatar-dropdown" // Class kustom (lihat CSS di bawah)
+              className="user-avatar-dropdown"
+              menuVariant="dark" 
             >
-              <NavDropdown.Item as={Link} href="/profil">Profil Saya</NavDropdown.Item>
-              <NavDropdown.Item as={Link} href="/pesanan">Riwayat Pesanan</NavDropdown.Item>
-              <NavDropdown.Divider />
-              <NavDropdown.Item as={Link} href="/logout" className="text-danger fw-bold">
+              
+              {/* Item-item ini tetap menggunakan .dropdown-user-item */}
+              <NavDropdown.Item as={Link} href="/profil" className="dropdown-user-item">
+                {userName}
+              </NavDropdown.Item>
+              <NavDropdown.Item as={Link} href="/pembelian" className="dropdown-user-item">
+                Pembelian
+              </NavDropdown.Item>
+              <NavDropdown.Item as={Link} href="/keranjang" className="dropdown-user-item">
+                Keranjang
+              </NavDropdown.Item>
+
+              <NavDropdown.Item as={Link} href="/logout" className="dropdown-user-logout">
                 Keluar
               </NavDropdown.Item>
+              {/* =================================== */}
+
             </NavDropdown>
-            {/* --- AKHIR PERUBAHAN --- */}
 
           </Nav>
         </Navbar.Collapse>
