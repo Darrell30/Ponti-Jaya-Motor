@@ -1,3 +1,4 @@
+// models/User.js
 const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
@@ -16,6 +17,17 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Password wajib diisi']
     },
+
+    // ===================================
+    // === TAMBAHAN BARU UNTUK ROLE ===
+    // ===================================
+    role: {
+        type: String,
+        enum: ['user', 'admin'], // Hanya izinkan nilai 'user' atau 'admin'
+        default: 'user'          // OTOMATIS set 'user' untuk akun baru
+    },
+    // ===================================
+
     createdAt: {
         type: Date,
         default: Date.now

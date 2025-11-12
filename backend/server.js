@@ -1,4 +1,4 @@
-// server.js
+// server.js (LENGKAP DAN SUDAH DIPERBARUI)
 
 require('dotenv').config();
 const http = require('http');
@@ -11,7 +11,7 @@ const nodemailer = require('nodemailer');
 // Impor Model
 const Sparepart = require('./models/sparepart'); 
 const Service = require('./models/service'); 
-const User = require('./models/User');
+const User = require('./models/User'); // Model ini SEKARANG memiliki 'role'
 const Otp = require('./models/Otp'); 
 
 // Variabel Lingkungan
@@ -44,7 +44,6 @@ const transporter = nodemailer.createTransport({
 transporter.verify((error, success) => {
     if (error) {
         console.error('❌ Nodemailer config error:', error.message);
-        console.warn('Peringatan: Pastikan GMAIL_USER dan GMAIL_PASS (App Password) sudah benar di .env');
     } else {
         console.log('✅ Nodemailer (Email) configured successfully!');
     }
@@ -103,37 +102,26 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    //Routing Sparepart 
+    //Rute Sparepart 
     if (url.startsWith('/api/spareparts')) {
         
-        // GET /api/spareparts (Get All)
         if (url === '/api/spareparts' && method === 'GET') {
-            
-            console.log('[0] Menerima request GET /api/spareparts...'); 
-            
             try {
-                console.log('[0] Mencoba menjalankan Sparepart.find()...');
                 const spareparts = await Sparepart.find({});
-                console.log(`[0] Berhasil! Ditemukan ${spareparts.length} sparepart.`);
                 sendResponse(res, 200, { success: true, count: spareparts.length, data: spareparts });
-                console.log('[0] Respons 200 berhasil dikirim.');
             } catch (error) {
-                console.error('[0] CRITICAL ERROR di /api/spareparts:', error);
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving spareparts' });
             }
         } 
-        // POST /api/spareparts (Create)
         else if (url === '/api/spareparts' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
                 const newSparepart = await Sparepart.create(body);
                 sendResponse(res, 201, { success: true, message: 'Sparepart created', data: newSparepart });
             } catch (error) {
-                const message = error.name === 'ValidationError' ? error.message : 'Server error creating sparepart';
-                sendResponse(res, 400, { success: false, message: message });
+                sendResponse(res, 400, { success: false, message: error.message });
             }
         } 
-        // GET /api/spareparts/:id (Get by ID)
         else if (method === 'GET' && url.split('/').length === 4) {
             const id = url.split('/')[3];
             try {
@@ -148,31 +136,26 @@ const server = http.createServer(async (req, res) => {
         }
     } 
     
-    // --- Routing Jasa (Services)
+    // Rute Jasa
     else if (url.startsWith('/api/services')) {
         
-        // GET /api/services (Get All)
         if (url === '/api/services' && method === 'GET') {
             try {
                 const services = await Service.find({});
                 sendResponse(res, 200, { success: true, count: services.length, data: services });
             } catch (error) {
-                console.error('[0] ERROR di /api/services (GET):', error);
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving services' });
             }
         } 
-        // POST /api/services (Create)
         else if (url === '/api/services' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
                 const newService = await Service.create(body);
                 sendResponse(res, 201, { success: true, message: 'Service created', data: newService });
             } catch (error) {
-                const message = error.name === 'ValidationError' ? error.message : 'Server error creating service';
-                sendResponse(res, 400, { success: false, message: message });
+                sendResponse(res, 400, { success: false, message: error.message });
             }
         }
-        // GET /api/services/:id (Get by ID)
         else if (method === 'GET' && url.split('/').length === 4) {
             const id = url.split('/')[3];
             try {
@@ -187,7 +170,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // --- UPLOAD GAMBAR ---
+    // Rute Upload Gambar
     else if (url === '/api/upload' && method === 'POST') {
         
         if (!req.headers['content-type'] || !req.headers['content-type'].startsWith('multipart/form-data')) {
@@ -196,21 +179,14 @@ const server = http.createServer(async (req, res) => {
 
         try {
             const bb = busboy({ headers: req.headers });
-
             bb.on('file', (name, fileStream, info) => {
                 const { filename } = info;
-                
                 const uploadStream = cloudinary.uploader.upload_stream(
-                    {
-                        folder: "ponti_jaya_motor", // Nama folder di Cloudinary
-                        public_id: filename 
-                    },
+                    { folder: "ponti_jaya_motor", public_id: filename },
                     (error, result) => {
                         if (error) {
-                            console.error('Cloudinary upload error:', error);
                             return sendResponse(res, 500, { success: false, message: 'Upload ke Cloudinary gagal' });
                         }
-                        
                         sendResponse(res, 201, {
                             success: true,
                             message: 'File berhasil di-upload',
@@ -219,26 +195,19 @@ const server = http.createServer(async (req, res) => {
                         });
                     }
                 );
-
                 fileStream.pipe(uploadStream);
             });
-
             bb.on('error', (err) => {
-                console.error('Busboy error:', err);
                 sendResponse(res, 500, { success: false, message: 'Gagal mem-parsing file' });
             });
-
             req.pipe(bb);
-
         } catch (error) {
-            console.error('Error di /api/upload:', error);
             sendResponse(res, 500, { success: false, message: 'Internal server error' });
         }
     }
 
-    // --- RUTE KIRIM OTP ---
+    // Rute Kirim OTP
     else if (url === '/api/send-otp' && method === 'POST') {
-        console.log('[0] Menerima request POST /api/send-otp...');
         try {
             const { email } = await getRequestBody(req);
             if (!email) {
@@ -255,18 +224,17 @@ const server = http.createServer(async (req, res) => {
                 to: email,
                 subject: 'Kode Verifikasi Anda - Ponti Jaya Motor',
                 text: `Kode verifikasi Anda adalah: ${otp}`,
-                html: `<b>Kode verifikasi Anda adalah: ${otp}</b><br><p>Kode ini akan kedaluwarsa dalam 5 menit.</p>` // Teks email diubah ke 30 detik
+                html: `<b>Kode verifikasi Anda adalah: ${otp}</b><br><p>Kode ini akan kedaluwarsa dalam 5 menit.</p>`
             });
             await Otp.create({ email, otp });
             console.log(`[0] OTP ${otp} berhasil dikirim ke ${email}`);
             sendResponse(res, 200, { success: true, message: `OTP telah dikirim ke ${email}` });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di /api/send-otp:', error);
             sendResponse(res, 500, { success: false, message: 'Gagal mengirim OTP' });
         }
     }
 
-    // --- RUTE REGISTRASI PENGGUNA (DENGAN PERBAIKAN WAKTU OTP) ---
+    // Rute Registrasi
     else if (url === '/api/register' && method === 'POST') {
         
         console.log('[0] Menerima request POST /api/register...'); 
@@ -279,103 +247,106 @@ const server = http.createServer(async (req, res) => {
                 return sendResponse(res, 400, { success: false, message: 'Semua field (termasuk OTP) wajib diisi' });
             }
 
-            // --- PERBAIKAN LOGIKA VERIFIKASI OTP ---
-            
-            // 1. Tentukan batas waktu (30 detik yang lalu dari sekarang)
-            // 30 * 1000 = 30000 milidetik
-            const thirtySecondsAgo = new Date(Date.now() - 300 * 1000);
-
-            // 2. Cari OTP yang:
-            //    a) Cocok emailnya
-            //    b) Cocok OTP-nya
-            //    c) Dibuat SETELAH (greater than) 30 detik yang lalu
+            // Batas waktu OTP (5 menit = 300 * 1000)
+            const fiveMinutesAgo = new Date(Date.now() - 300 * 1000);
             const validOtp = await Otp.findOne({
                 email: email,
                 otp: otp,
-                createdAt: { $gte: thirtySecondsAgo } 
+                createdAt: { $gte: fiveMinutesAgo } 
             });
 
             if (!validOtp) {
-                // Jika tidak ditemukan, berarti OTP-nya salah ATAU sudah kedaluwarsa
                 return sendResponse(res, 400, { success: false, message: 'Kode OTP salah atau telah kedaluwarsa' });
             }
-            // --- AKHIR PERBAIKAN LOGIKA ---
 
-            // Cek user
             const existingUser = await User.findOne({ $or: [{ email: email }, { username: username }] });
             if (existingUser) {
                 const message = existingUser.email === email ? 'Email sudah terdaftar' : 'Username sudah digunakan';
                 return sendResponse(res, 400, { success: false, message: message });
             }
 
-            // Hash password
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
 
-            // Buat user baru
+            // User.create akan OTOMATIS mengatur 'role: "user"'
+            // karena pembaruan di models/User.js
             const newUser = await User.create({
                 username,
                 email,
                 password: hashedPassword
             });
             
-            console.log(`[0] User baru berhasil dibuat: ${newUser.username}`);
+            // REVISI: Log untuk menampilkan role
+            console.log(`[0] User baru berhasil dibuat: ${newUser.username} (Role: ${newUser.role})`);
 
-            // Hapus OTP setelah berhasil digunakan
             await Otp.deleteMany({ email });
             
+            // REVISI: Mengirim 'role' di respons
             sendResponse(res, 201, { 
                 success: true, 
                 message: 'User berhasil dibuat', 
-                data: { userId: newUser._id, username: newUser.username } 
+                data: { userId: newUser._id, username: newUser.username, role: newUser.role } 
             });
 
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di /api/register:', error);
-            const message = error.name === 'ValidationError' ? error.message : 'Server error saat membuat user';
-            sendResponse(res, 400, { success: false, message: message });
+            sendResponse(res, 400, { success: false, message: error.message });
         }
     }
 
+    // =======================================================
+    // === RUTE LOGIN (DIPERBARUI UNTUK CEK USERNAME/EMAIL) ===
+    // =======================================================
     else if (url === '/api/auth/login' && method === 'POST') {
         
-        console.log('[0] Menerima request POST /api/auth/login...'); 
+        console.log('\n--- [DEBUG] /api/auth/login ---'); // Debugging
         
         try {
             const body = await getRequestBody(req);
-            const { username, password } = body;
+            // 'username' dari form bisa berisi username ATAU email
+            const { username, password } = body; 
+
+            // --- DEBUG LOG 1 ---
+            console.log(`[1] Menerima data: Input='${username}', Password='${"*".repeat(password.length)}'`);
 
             if (!username || !password) {
+                console.log('[DEBUG] Gagal: Username atau password kosong.');
                 return sendResponse(res, 400, { success: false, message: 'Username dan password wajib diisi' });
             }
 
-            // 1. Cari user berdasarkan username di database
-            // Kita gunakan 'username' karena Halaman Login Anda mengirim 'username'
-            const user = await User.findOne({ username: username });
+            // 1. REVISI: Cari user yang 'username'-nya ATAU 'email'-nya cocok
+            const user = await User.findOne({
+                $or: [
+                    { username: username },
+                    { email: username }
+                ]
+            });
             
+            // --- DEBUG LOG 2 ---
             if (!user) {
-                // User tidak ditemukan
-                console.log(`[0] Login Gagal: Username '${username}' tidak ditemukan.`);
+                console.log(`[2] HASIL DB: User TIDAK DITEMUKAN untuk query: '${username}'`);
+                console.log('--- [DEBUG] Selesai (Gagal) ---');
                 return sendResponse(res, 401, { success: false, message: 'Username atau password salah' });
             }
+            console.log(`[2] HASIL DB: User DITEMUKAN. ID: ${user._id}, Username: ${user.username}`);
+            console.log(`   -> Hash di DB: ${user.password}`);
 
-            // 2. Bandingkan password yang dikirim dengan password di database
+
+            // 2. Bandingkan password
             const isMatch = await bcrypt.compare(password, user.password);
 
+            // --- DEBUG LOG 3 ---
+            console.log(`[3] HASIL BCRYPT: ${isMatch}`);
+
             if (!isMatch) {
-                // Password salah
-                console.log(`[0] Login Gagal: Password salah untuk '${username}'.`);
+                console.log(`   -> Login Gagal: Password tidak cocok.`);
+                console.log('--- [DEBUG] Selesai (Gagal) ---');
                 return sendResponse(res, 401, { success: false, message: 'Username atau password salah' });
             }
 
-            // 3. Tentukan Role (Peran) - KARENA TIDAK ADA DI DATABASE
-            // Kita buat "role" secara manual berdasarkan username
-            let userRole = 'user'; // Default role
-            if (user.username === 'admin@pontijaya.com') {
-                userRole = 'admin';
-            }
-            
-            console.log(`[0] Login BERHASIL untuk: ${user.username}, Role: ${userRole}`);
+            // 3. Login Berhasil. Baca 'role' dari database.
+            // REVISI: Membaca 'user.role' langsung dari database
+            console.log(`[4] Login BERHASIL. Role: ${user.role}`);
+            console.log('--- [DEBUG] Selesai (Sukses) ---');
 
             // 4. Kirim respons sukses ke frontend
             sendResponse(res, 200, {
@@ -385,16 +356,19 @@ const server = http.createServer(async (req, res) => {
                     userId: user._id,
                     username: user.username,
                     email: user.email,
-                    role: userRole // Kirim 'role' ini ke frontend
+                    role: user.role // Kirim role asli dari database
                 }
-                // Nanti Anda bisa tambahkan JSON Web Token (JWT) di sini
             });
 
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di /api/auth/login:', error);
+            console.error('[DEBUG] CRITICAL ERROR di /api/auth/login:', error);
+            console.log('--- [DEBUG] Selesai (Error Kritis) ---');
             sendResponse(res, 500, { success: false, message: 'Server error saat login' });
         }
     }
+    // =======================================================
+    // === AKHIR RUTE LOGIN ===
+    // =======================================================
 
     else {
         sendResponse(res, 404, { success: false, message: 'Endpoint Not Found' });
@@ -405,6 +379,7 @@ const server = http.createServer(async (req, res) => {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`🚀 Server running for Ponti Jaya Motor on http://localhost:${PORT}`);
-        console.log(`Endpoints: /api/spareparts, /api/services, /api/upload, /api/register, /api/send-otp`);
+        // REVISI: Menambahkan /api/auth/login ke log
+        console.log(`Endpoints: /api/spareparts, /api/services, /api/upload, /api/register, /api/send-otp, /api/auth/login`);
     });
 });
