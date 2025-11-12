@@ -13,38 +13,69 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // ===================================
+  // === FUNGSI LOGIN DENGAN FETCH ASLI ===
+  // ===================================
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    // ===================================
-    // === LOGIKA LOGIN YANG DIPERBARUI ===
-    // ===================================
+    console.log("[FRONTEND] Mencoba login dengan:", username); // <-- DEBUG BARU DI FRONTEND
 
-    // 1. Cek Admin
-    if (username === "admin@pontijaya.com" && password === "123") {
-      // Set flag admin, redirect ke admin
-      localStorage.setItem("isAdminLoggedIn", "true");
-      // Hapus flag user jika ada (untuk keamanan)
-      localStorage.removeItem("isUserLoggedIn"); 
-      router.push("/admin/dashboard");
-    
-    // 2. Cek User Biasa (GANTI INI DENGAN API CALL ANDA NANTI)
-    } else if (username === "user@pontijaya.com" && password === "123") {
-      // Set flag user, redirect ke homepage
-      localStorage.setItem("isUserLoggedIn", "true");
-      // Hapus flag admin jika ada
-      localStorage.removeItem("isAdminLoggedIn");
-      router.push("/"); // Redirect ke homepage (LayoutRenderer akan menampilkan layout user)
-    
-    // 3. Gagal Login
-    } else {
-      setError("Username atau password salah!");
+    try {
+      // 1. Kirim data login ke backend Anda
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // 'username' di sini bisa berisi username ATAU email
+        body: JSON.stringify({ username, password }), 
+      });
+
+      console.log("[FRONTEND] Menerima respons dari server:", response.status); // <-- DEBUG BARU DI FRONTEND
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Jika server merespons dengan error (misal: 401, 404, 500)
+        throw new Error(data.message || 'Terjadi kesalahan');
+      }
+
+      // 2. Jika login SUKSES (backend mengirim { success: true, ... })
+      if (data.success) {
+        const userRole = data.user.role; // Dapatkan role dari backend
+
+        // 3. Cek Role (Peran)
+        if (userRole === 'admin') {
+          localStorage.setItem("isAdminLoggedIn", "true");
+          localStorage.removeItem("isUserLoggedIn");
+          router.push("/admin/dashboard");
+        
+        } else if (userRole === 'user') {
+          localStorage.setItem("isUserLoggedIn", "true");
+          localStorage.removeItem("isAdminLoggedIn");
+          router.push("/"); // Arahkan ke homepage
+        
+        } else {
+          throw new Error('Peran pengguna tidak dikenal.');
+        }
+
+      } else {
+        // Jika backend mengirim { success: false, message: '...' }
+        setError(data.message || "Username atau password salah!");
+      }
+
+    } catch (err: any) {
+      // 4. Tangkap error (jaringan gagal, server mati, dll)
+      console.error("[FRONTEND] Login fetch error:", err);
+      setError(err.message || "Tidak dapat terhubung ke server.");
+    } finally {
       setIsLoading(false);
     }
-    // ===================================
   };
+  // ===================================
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)" }} className="d-flex align-items-center justify-content-center p-4">
@@ -56,7 +87,6 @@ export default function LoginPage() {
               <Lock size={28} />
             </div>
             <h4 className="fw-bold text-dark">Login</h4>
-            {/* REVISI: Teks diubah agar lebih umum */}
             <p className="text-muted small">Masuk ke akun Anda</p>
           </div>
 
@@ -68,11 +98,11 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin}>
             <div className="mb-3">
-              <label className="form-label small fw-bold text-muted">Username</label>
+              <label className="form-label small fw-bold text-muted">Username atau Email</label>
               <input 
                 type="text" 
                 className="form-control form-control-lg fs-6 bg-light border-0"
-                placeholder="Masukkan username"
+                placeholder="Masukkan username atau email"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -90,7 +120,6 @@ export default function LoginPage() {
               />
             </div>
 
-            {/*Daftar*/}
             <div className="text-center mb-3">
               <span className="text-muted small">Belum punya akun? </span>
               <Link href="/daftar" className="fw-bold small text-decoration-none" style={{ color: '#0d6efd' }}>
@@ -104,7 +133,6 @@ export default function LoginPage() {
               style={{ backgroundColor: '#0d6efd' }}
               disabled={isLoading}
             >
-              {/* REVISI: Teks diubah agar lebih umum */}
               {isLoading ? "Memproses..." : "Masuk"}
             </button>
           </form>
