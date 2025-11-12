@@ -18,14 +18,32 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    // Simulasi Login (admin / 123)
+    // ===================================
+    // === LOGIKA LOGIN YANG DIPERBARUI ===
+    // ===================================
+
+    // 1. Cek Admin
     if (username === "admin@pontijaya.com" && password === "123") {
+      // Set flag admin, redirect ke admin
       localStorage.setItem("isAdminLoggedIn", "true");
+      // Hapus flag user jika ada (untuk keamanan)
+      localStorage.removeItem("isUserLoggedIn"); 
       router.push("/admin/dashboard");
+    
+    // 2. Cek User Biasa (GANTI INI DENGAN API CALL ANDA NANTI)
+    } else if (username === "user@pontijaya.com" && password === "123") {
+      // Set flag user, redirect ke homepage
+      localStorage.setItem("isUserLoggedIn", "true");
+      // Hapus flag admin jika ada
+      localStorage.removeItem("isAdminLoggedIn");
+      router.push("/"); // Redirect ke homepage (LayoutRenderer akan menampilkan layout user)
+    
+    // 3. Gagal Login
     } else {
       setError("Username atau password salah!");
       setIsLoading(false);
     }
+    // ===================================
   };
 
   return (
@@ -38,7 +56,8 @@ export default function LoginPage() {
               <Lock size={28} />
             </div>
             <h4 className="fw-bold text-dark">Login</h4>
-            <p className="text-muted small">Masuk untuk mengelola bengkel</p>
+            {/* REVISI: Teks diubah agar lebih umum */}
+            <p className="text-muted small">Masuk ke akun Anda</p>
           </div>
 
           {error && (
@@ -85,7 +104,8 @@ export default function LoginPage() {
               style={{ backgroundColor: '#0d6efd' }}
               disabled={isLoading}
             >
-              {isLoading ? "Memproses..." : "Masuk Dashboard"}
+              {/* REVISI: Teks diubah agar lebih umum */}
+              {isLoading ? "Memproses..." : "Masuk"}
             </button>
           </form>
         </div>

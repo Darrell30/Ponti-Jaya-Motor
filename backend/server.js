@@ -337,6 +337,65 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    else if (url === '/api/auth/login' && method === 'POST') {
+        
+        console.log('[0] Menerima request POST /api/auth/login...'); 
+        
+        try {
+            const body = await getRequestBody(req);
+            const { username, password } = body;
+
+            if (!username || !password) {
+                return sendResponse(res, 400, { success: false, message: 'Username dan password wajib diisi' });
+            }
+
+            // 1. Cari user berdasarkan username di database
+            // Kita gunakan 'username' karena Halaman Login Anda mengirim 'username'
+            const user = await User.findOne({ username: username });
+            
+            if (!user) {
+                // User tidak ditemukan
+                console.log(`[0] Login Gagal: Username '${username}' tidak ditemukan.`);
+                return sendResponse(res, 401, { success: false, message: 'Username atau password salah' });
+            }
+
+            // 2. Bandingkan password yang dikirim dengan password di database
+            const isMatch = await bcrypt.compare(password, user.password);
+
+            if (!isMatch) {
+                // Password salah
+                console.log(`[0] Login Gagal: Password salah untuk '${username}'.`);
+                return sendResponse(res, 401, { success: false, message: 'Username atau password salah' });
+            }
+
+            // 3. Tentukan Role (Peran) - KARENA TIDAK ADA DI DATABASE
+            // Kita buat "role" secara manual berdasarkan username
+            let userRole = 'user'; // Default role
+            if (user.username === 'admin@pontijaya.com') {
+                userRole = 'admin';
+            }
+            
+            console.log(`[0] Login BERHASIL untuk: ${user.username}, Role: ${userRole}`);
+
+            // 4. Kirim respons sukses ke frontend
+            sendResponse(res, 200, {
+                success: true,
+                message: 'Login berhasil',
+                user: {
+                    userId: user._id,
+                    username: user.username,
+                    email: user.email,
+                    role: userRole // Kirim 'role' ini ke frontend
+                }
+                // Nanti Anda bisa tambahkan JSON Web Token (JWT) di sini
+            });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di /api/auth/login:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat login' });
+        }
+    }
+
     else {
         sendResponse(res, 404, { success: false, message: 'Endpoint Not Found' });
     }
