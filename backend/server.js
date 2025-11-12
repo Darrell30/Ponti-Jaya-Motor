@@ -255,7 +255,7 @@ const server = http.createServer(async (req, res) => {
                 to: email,
                 subject: 'Kode Verifikasi Anda - Ponti Jaya Motor',
                 text: `Kode verifikasi Anda adalah: ${otp}`,
-                html: `<b>Kode verifikasi Anda adalah: ${otp}</b><br><p>Kode ini akan kedaluwarsa dalam 30 detik.</p>` // Teks email diubah ke 30 detik
+                html: `<b>Kode verifikasi Anda adalah: ${otp}</b><br><p>Kode ini akan kedaluwarsa dalam 5 menit.</p>` // Teks email diubah ke 30 detik
             });
             await Otp.create({ email, otp });
             console.log(`[0] OTP ${otp} berhasil dikirim ke ${email}`);
@@ -283,7 +283,7 @@ const server = http.createServer(async (req, res) => {
             
             // 1. Tentukan batas waktu (30 detik yang lalu dari sekarang)
             // 30 * 1000 = 30000 milidetik
-            const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+            const thirtySecondsAgo = new Date(Date.now() - 300 * 1000);
 
             // 2. Cari OTP yang:
             //    a) Cocok emailnya

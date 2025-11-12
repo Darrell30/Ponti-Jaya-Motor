@@ -13,7 +13,7 @@ const OtpSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now,
-        expires: 30 // 300 detik = 5 menit
+        expires: 300 // 300 detik = 5 menit
     }
 }, {
     collection: 'Otp' // Nama collection di MongoDB
