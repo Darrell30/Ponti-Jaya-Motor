@@ -9,7 +9,7 @@
 /backend/node_modules
 /backend/.env
 /.pnp
-/package-lock.json
+/PONTI-JAYA-MOTOR/package-lock.json
 .pnp.js
 .yarn/install-state.gz
 

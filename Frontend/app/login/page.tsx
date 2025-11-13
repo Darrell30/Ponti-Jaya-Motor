@@ -33,8 +33,6 @@ export default function LoginPage() {
         throw new Error(data.message || 'Login Gagal. Cek kembali data Anda.');
       }
 
-      // --- INI PERBAIKANNYA (LOGIKA ROLE) ---
-      
       // 2. Cek data 'role' yang dikirim backend
       const userRole = data.data.role; // Sesuai struktur data di server.js
 
@@ -52,8 +50,6 @@ export default function LoginPage() {
         localStorage.setItem("userInfo", JSON.stringify(data.data)); 
         router.push("/"); // Lempar ke Halaman Utama (Homepage)
       }
-      
-      // -----------------------------------------
 
     } catch (err: any) {
       setError(err.message);
@@ -63,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)" }} className="d-flex align-items-center justify-content-center p-4">
-      <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ maxWidth: "400px", width: "100%" }}>
+      <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ maxWidth: "400px", width: "100%", border: '1px solid #F0F3F7'}}>
         <div className="card-body p-5">
           
           <div className="text-center mb-4">

@@ -18,7 +18,7 @@ export default function DaftarPage() {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   
-  const [otpSent, setOtpSent] = useState(false); // <-- BARU: Menandai OTP sudah dikirim
+  const [otpSent, setOtpSent] = useState(false); 
 
   // --- FUNGSI KIRIM OTP (ASLI) ---
   const handleKirimOtp = async () => {
@@ -99,7 +99,7 @@ export default function DaftarPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)" }} className="d-flex align-items-center justify-content-center p-4">
-      <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ maxWidth: "450px", width: "100%" }}>
+      <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ maxWidth: "400px", width: "100%" }}>
         <div className="card-body p-5">
           
           <div className="text-center mb-4">
@@ -128,7 +128,8 @@ export default function DaftarPage() {
               />
               <button 
                 type="button" 
-                className="btn btn-outline-secondary" 
+                className="btn btn-primary fw-bold text-white" 
+                style={{ fontSize: '0.85rem' }}
                 onClick={handleKirimOtp}
                 disabled={isSendingOtp || !email || otpSent}
               >
@@ -136,7 +137,6 @@ export default function DaftarPage() {
               </button>
             </div>
 
-            {/* --- KONTEN INI HANYA MUNCUL SETELAH OTP DIKIRIM --- */}
             {otpSent && (
               <>
                 {/* 2. Input OTP */}
