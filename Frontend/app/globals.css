@@ -16,7 +16,7 @@ html,
 body {
   max-width: 100vw;
   /* overflow-x: hidden; <-- Dihapus untuk memperbaiki sticky navbar */
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif; /* Akan ditimpa oleh Roboto dari layout.tsx */
   background-color: #f8fafc; 
 }
 
@@ -96,7 +96,7 @@ a {
   color: #fff;
 }
 
-/* Tombol "Tambah" (Produk Card) */
+/* Tombol "Tambah" (Produk Card & Modal) */
 .btn-add-to-cart {
   background-color: #0d6efd;
   border-color: #0d6efd;
@@ -112,6 +112,11 @@ a {
 .btn-add-to-cart:hover {
   background-color: #0a58ca;
   border-color: #0a58ca;
+}
+/* Style tombol sukses */
+.btn-add-to-cart.btn-success {
+  background-color: #198754;
+  border-color: #198754;
 }
 
 /* Tombol "Hubungi Kami" (Jasa Card) */
@@ -205,6 +210,7 @@ a {
   border-bottom: 1px solid #dee2e6;
 }
 
+/* Cursor pointer untuk Brand Link */
 .navbar-brand-link {
   cursor: pointer;
   text-decoration: none;
@@ -219,17 +225,28 @@ a {
   display: none;
 }
 
-/* REVISI: Tambahkan padding ke menu dropdown (kotak abu-abu) */
+/* Padding untuk menu dropdown (kotak abu-abu) */
 .user-avatar-dropdown .dropdown-menu {
   padding: 0.5rem !important;
 }
 
-/* ================================== */
-/* === Style Tombol Keluar Dropdown === */
-/* ================================== */
+/* Style Item Dropdown (Biru saat hover) */
+.dropdown-user-item {
+  color: #fff !important;
+  font-weight: 500;
+  margin: 0.25rem 0; /* Margin vertikal */
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem !important;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+.dropdown-user-item:hover,
+.dropdown-user-item:focus {
+  color: #fff !important;
+  background-color: #0d6efd !important;
+}
 
+/* Style Tombol Keluar (Merah saat hover) */
 .dropdown-user-logout {
-  /* Ambil style dasar dari .dropdown-user-item */
   color: #fff !important;
   font-weight: 500;
   margin: 0.25rem 0;
@@ -237,12 +254,10 @@ a {
   padding: 0.5rem 1rem !important;
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
 }
-
 .dropdown-user-logout:hover,
 .dropdown-user-logout:focus {
-  /* REVISI: Ganti warna hover menjadi merah */
   color: #fff !important;
-  background-color: #dc3545 !important; /* Warna merah (danger) */
+  background-color: #dc3545 !important; /* Merah */
 }
 
 /* ================================== */
@@ -308,23 +323,79 @@ a {
 }
 
 /* ================================== */
-/* === Style Item Dropdown User === */
+/* === Style Stepper Lacak Pesanan === */
 /* ================================== */
 
-.dropdown-user-item {
-  color: #fff !important;
+.stepper-wrapper {
+  display: flex;
+  justify-content: space-between;
+  margin: 2rem 0;
+}
+.stepper-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.stepper-item:last-child .stepper-line {
+  display: none;
+}
+.stepper-icon {
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #adb5bd;
+  font-size: 1.2rem;
+  z-index: 2;
+}
+.stepper-line {
+  position: absolute;
+  top: 22.5px;
+  left: 50%;
+  width: 100%;
+  height: 3px;
+  background: #e9ecef;
+  z-index: 1;
+}
+.stepper-label {
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
   font-weight: 500;
-  
-  /* REVISI: Hapus margin horizontal, biarkan margin vertikal */
-  margin: 0.25rem 0;
-  
-  border-radius: 0.375rem;
-  padding: 0.5rem 1rem !important;
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  color: #adb5bd;
+}
+.stepper-item.completed .stepper-icon {
+  background: #198754;
+  color: #fff;
+}
+.stepper-item.completed .stepper-line {
+  background: #198754;
+}
+.stepper-item.completed .stepper-label {
+  color: #212529;
+}
+.stepper-item.current .stepper-icon {
+  border: 3px solid #198754;
+  background: #fff;
+  color: #198754;
+}
+.stepper-item.current .stepper-label {
+  color: #212529;
 }
 
-.dropdown-user-item:hover,
-.dropdown-user-item:focus {
-  color: #fff !important;
-  background-color: #0d6efd !important;
+/* ================================== */
+/* === Style Kartu Transaksi === */
+/* ================================== */
+.card-transaction {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-transaction:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
