@@ -1,7 +1,7 @@
 // app/produk/page.tsx
 'use client';
 
-// 1. Import komponen baru: Modal
+// 1. Import komponen
 import { Container, Row, Col, Button, Image, Card, Spinner, Form, InputGroup, Modal } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 // NavbarProdukGuest TIDAK diimpor di sini, LayoutRenderer yang mengaturnya
@@ -24,7 +24,7 @@ export default function ProdukPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // === State Modal (BARU) ===
+  // === State Modal ===
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1); // State untuk jumlah di modal
@@ -51,43 +51,46 @@ export default function ProdukPage() {
     fetchProducts();
   }, []);
 
-  // === Handlers Modal (BARU) ===
+  // === Handlers Modal ===
   
-  // Fungsi untuk menutup modal
   const handleCloseModal = () => {
     setShowModal(false);
-    setSelectedProduct(null); // Bersihkan produk yang dipilih
+    setSelectedProduct(null);
   };
 
-  // Fungsi untuk membuka modal dan mengatur produk
   const handleShowModal = (product: Product) => {
     setSelectedProduct(product);
-    setQuantity(1); // Selalu reset jumlah ke 1 saat modal baru dibuka
+    setQuantity(1); 
     setShowModal(true);
   };
 
-  // Fungsi untuk counter di modal
   const handleQuantityDecrease = () => {
-    setQuantity((prev) => (prev > 1 ? prev - 1 : 1)); // Tidak boleh kurang dari 1
+    setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
   };
   
   const handleQuantityIncrease = () => {
-    // Cek stok jika ada
     if (selectedProduct && selectedProduct.stok) {
       setQuantity((prev) => (prev < selectedProduct.stok! ? prev + 1 : prev));
     } else {
-      setQuantity((prev) => prev + 1); // Jika tidak ada info stok, biarkan nambah
+      setQuantity((prev) => prev + 1);
     }
   };
 
-  // Kalkulasi subtotal dinamis
   const subtotal = selectedProduct ? selectedProduct.harga * quantity : 0;
+
+  // Style khusus untuk menyamakan tinggi tombol di modal (48px)
+  const buttonStyle = {
+    height: '48px',
+    fontSize: '1.1rem',
+    fontWeight: 'bold' as const, // Casting tipe agar TypeScript tidak komplain
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
 
 
   return (
     <>
-      {/* NavbarProdukGuest dipanggil oleh LayoutRenderer, bukan di sini */}
-
       {/* Konten Halaman Produk */}
       <Container className="py-5">
         
@@ -125,11 +128,11 @@ export default function ProdukPage() {
                     </div>
                     
                     <div>
-                      {/* REVISI: Tombol ini sekarang membuka modal */}
+                      {/* Tombol ini membuka modal */}
                       <Button
                         variant="primary"
                         className="btn-cart-icon"
-                        onClick={() => handleShowModal(product)} // <-- UBAH DI SINI
+                        onClick={() => handleShowModal(product)}
                       >
                         <i className="bi bi-cart-plus fs-5"></i>
                       </Button>
@@ -144,15 +147,20 @@ export default function ProdukPage() {
 
 
       {/* ================================== */}
-      {/* === MODAL DETAIL PRODUK (BARU) === */}
+      {/* === MODAL DETAIL PRODUK === */}
       {/* ================================== */}
       <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
-        <Modal.Header closeButton className="border-0 pb-0">
-          {/* Header kosong, hanya tombol close */}
+        
+        <Modal.Header closeButton className="border-0">
+          {selectedProduct && (
+            <Modal.Title as="h3" className="fw-bold text-dark">
+              {selectedProduct.nama}
+            </Modal.Title>
+          )}
         </Modal.Header>
+
         <Modal.Body className="p-4 pt-0">
           
-          {/* Cek jika ada produk yang dipilih */}
           {selectedProduct && (
             <Row className="g-custom-20">
               
@@ -168,9 +176,7 @@ export default function ProdukPage() {
 
               {/* Kolom Kanan: Info */}
               <Col md={5}>
-                <h3 className="fw-bold text-dark">{selectedProduct.nama}</h3>
                 <p className="text-secondary small">
-                  {/* Tampilkan deskripsi jika ada, jika tidak, tampilkan fallback */}
                   {selectedProduct.deskripsi || 'As Ayun Bajaj adalah pin poros utama di sistem suspensi depan yang memungkinkan roda depan bergerak bebas secara vertikal (mengayun) saat melewati gundukan atau jalan tidak rata, menjaga stabilitas dan kenyamanan kendaraan.'}
                 </p>
                 
@@ -179,7 +185,7 @@ export default function ProdukPage() {
                   <h6 className="fw-bold text-dark">Atur Jumlah</h6>
                   <div className="d-flex justify-content-between align-items-center mt-3">
                     
-                    {/* Quantity Counter (Sesuai Figma: + di kiri, - di kanan) */}
+                    {/* Quantity Counter */}
                     <div className="d-flex align-items-center border rounded-3 bg-white">
                       <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityIncrease}>+</Button>
                       <Form.Control 
@@ -191,7 +197,6 @@ export default function ProdukPage() {
                       <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityDecrease}>-</Button>
                     </div>
 
-                    {/* Stok */}
                     <span className="text-secondary small">Stok: <strong className="text-dark">{selectedProduct.stok || '50'}</strong></span>
                   </div>
                 </div>
@@ -204,13 +209,44 @@ export default function ProdukPage() {
                   </span>
                 </div>
 
-                {/* Tombol Aksi */}
-                <Button variant="primary" className="w-100 fw-bold py-2 mb-2 btn-add-to-cart">
-                  <i className="bi bi-cart-plus me-2"></i>+ Keranjang
-                </Button>
-                <Button variant="outline-primary" className="w-100 fw-bold py-2">
-                  Chat Toko
-                </Button>
+                {/* ===================================
+                  === TOMBOL AKSI (DIPERBARUI) ===
+                  ===================================
+                */}
+                <div className="d-flex flex-column gap-2">
+                  
+                  {/* Tombol 1: Tambah ke Keranjang (Biru Solid) */}
+                  {/* Tombol ini menggunakan class .btn-add-to-cart dari globals.css (height: 48px) */}
+                  <Button 
+                    variant="primary" 
+                    className="w-100 rounded-3 btn-add-to-cart"
+                  >
+                    <i className="bi bi-cart-plus me-2"></i>+ Keranjang
+                  </Button>
+                  
+                  {/* Tombol 2: Cek Out / Beli Langsung (Outline Biru) */}
+                  {/* Tombol ini menggunakan 'buttonStyle' agar tingginya sama (48px) */}
+                  <Button 
+                    variant="outline-primary" 
+                    className="w-100 rounded-3"
+                    style={buttonStyle}
+                    // onClick={...} (Tambahkan fungsi checkout Anda di sini nanti)
+                  >
+                    Beli Langsung
+                  </Button>
+
+                  {/* Tombol 3: Chat Toko (Outline Abu-abu) */}
+                  <Button 
+                    variant="outline-secondary" 
+                    className="w-100 rounded-3"
+                    style={buttonStyle}
+                  >
+                    <i className="bi bi-chat-dots me-2"></i>Chat Toko
+                  </Button>
+
+                </div>
+                {/* =================================== */}
+
               </Col>
             </Row>
           )}
