@@ -3,10 +3,37 @@
 
 import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
 import Link from 'next/link';
+// 1. Impor useState dan useEffect dari React
+import { useState, useEffect } from 'react';
 
 function NavbarUser() {
-  // Nanti, Anda akan mendapatkan nama user ini dari state/session
-  const userName = "Delvin Sulistio"; 
+  // 2. Ganti const statis dengan useState
+  //    "Memuat..." akan tampil singkat sebelum nama asli muncul
+  const [userName, setUserName] = useState("Memuat...");
+
+  // 3. Gunakan useEffect untuk membaca localStorage setelah komponen dimuat
+  useEffect(() => {
+    // Pastikan kode ini hanya berjalan di sisi client (browser)
+    if (typeof window !== 'undefined') {
+      
+      // Ambil data user yang Anda simpan saat login
+      const userInfoString = localStorage.getItem("userInfo");
+      
+      if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        
+        // Cek apakah data username ada, lalu update state
+        if (userInfo && userInfo.username) {
+          setUserName(userInfo.username);
+        } else {
+          setUserName("User"); // Fallback jika tidak ada nama
+        }
+      } else {
+        // Fallback jika tidak ada data userInfo (seharusnya tidak terjadi jika sudah login)
+        setUserName("User");
+      }
+    }
+  }, []); // [] berarti efek ini hanya berjalan sekali saat komponen dimuat
 
   return (
     <Navbar 
@@ -14,6 +41,7 @@ function NavbarUser() {
       variant="dark" 
       expand="lg" 
       sticky="top"
+      className="main-navbar"
     >
       <Container className="container-figma"> 
         <Navbar.Brand 
@@ -49,8 +77,7 @@ function NavbarUser() {
               className="user-avatar-dropdown"
               menuVariant="dark" 
             >
-              
-              {/* Item-item ini tetap menggunakan .dropdown-user-item */}
+              {/* 4. Tampilkan nama dari state di sini */}
               <NavDropdown.Item as={Link} href="/profil" className="dropdown-user-item">
                 {userName}
               </NavDropdown.Item>
@@ -60,14 +87,10 @@ function NavbarUser() {
               <NavDropdown.Item as={Link} href="/keranjang" className="dropdown-user-item">
                 Keranjang
               </NavDropdown.Item>
-
               <NavDropdown.Item as={Link} href="/logout" className="dropdown-user-logout">
                 Keluar
               </NavDropdown.Item>
-              {/* =================================== */}
-
             </NavDropdown>
-
           </Nav>
         </Navbar.Collapse>
       </Container>
