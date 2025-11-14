@@ -9,13 +9,14 @@ function NavbarGuest() {
     <Navbar 
       bg="dark" 
       variant="dark" 
-      expand="lg"
+      expand="lg" 
       sticky="top"
+      className="main-navbar" // <-- TAMBAHKAN CLASS INI
     >
       <Container className="container-figma"> 
         <Navbar.Brand 
           as={Link} 
-          href="/" // Link logo biarkan ke "/"
+          href="/" 
           className="fw-bold"
           style={{ letterSpacing: '1px' }}
         >
@@ -26,17 +27,10 @@ function NavbarGuest() {
         
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto align-items-center">
-            
-            {/* --- INI PERUBAHANNYA --- */}
             <Link href="/#hero" className="nav-link mx-2">Home</Link>
             <Link href="/#jasa" className="nav-link mx-2">Jasa</Link>
-            
-            {/* Link "Sparepart" biarkan, karena ini halaman terpisah */}
-            <Link href="/produk" className="nav-link mx-2">Produk</Link> 
-            
+            <Link href="/produk" className="nav-link mx-2">Produk</Link>
             <Link href="/#hubungi" className="nav-link mx-2">Hubungi Kami</Link>
-            {/* --- AKHIR PERUBAHAN --- */}
-
             <Button 
               as={Link} 
               href="/login" 

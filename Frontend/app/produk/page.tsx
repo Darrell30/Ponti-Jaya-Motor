@@ -1,12 +1,13 @@
 // app/produk/page.tsx
 'use client';
 
-// 1. Import komponen (Alert, Toast, ToastContainer ditambahkan)
-import { Container, Row, Col, Button, Image, Card, Spinner, Form, InputGroup, Modal, Alert, Toast, ToastContainer } from 'react-bootstrap';
+import { Container, Row, Col, Button, Image, Card, Spinner, Form, InputGroup, Modal, Alert, Toast, ToastContainer, Nav } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react'; // <-- Ikon loading
+// 1. Import useRouter
+import { useRouter } from 'next/navigation';
+import { Loader2, AlertTriangle, Truck } from 'lucide-react'; 
 
-// Definisikan Tipe untuk produk dari backend
+// ... (interface Product, Service, dan konstanta lainnya SAMA)
 interface Product {
   _id: string;
   nama: string;
@@ -14,41 +15,73 @@ interface Product {
   harga: number;
   stok?: number;
   deskripsi?: string;
+  kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW';
 }
+interface Service {
+  _id: string;
+  nama: string;
+  imageUrl: string;
+  harga: number;
+  deskripsi?: string;
+}
+const featuredProductNames = [
+  "Veleg", "Selang Rem", "Kampas Rem", "Seal Lahar Bambu",
+  "Klahar Roda", "Tabung Central", "Veleg"
+];
+const bestSellingProductNames = [
+  "Master Rem", "Kampas Rem", "Klahar Roda", "Master Central", "Tabung Central",
+];
 
-// KOMPONEN UTAMA
 export default function ProdukPage() {
+  // 2. Inisialisasi router
+  const router = useRouter();
 
-  // State Halaman
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [activeCategory, setActiveCategory] = useState('Semua');
+  const [sortBy, setSortBy] = useState('Terbaru');
 
-  // === State Modal ===
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1); 
-  
-  // State untuk umpan balik
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMessage, setModalMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  
-  // --- 2. STATE BARU UNTUK NOTIFIKASI TOAST ---
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // LOGIKA FETCH DATA
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/spareparts');
-        if (!response.ok) throw new Error('Gagal mengambil data');
-        const data = await response.json();
+        const [sparepartRes, serviceRes, storeStatusRes] = await Promise.all([
+            fetch('http://localhost:5000/api/spareparts'),
+            fetch('http://localhost:5000/api/services'),
+            fetch('http://localhost:5000/api/store/status')
+        ]);
+        if (!sparepartRes.ok) throw new Error('Gagal mengambil data');
+        if (storeStatusRes.ok) {
+            const storeData = await storeStatusRes.json();
+            if (storeData.success) setIsStoreOpen(storeData.isStoreOpen);
+        }
+        const data = await sparepartRes.json();
+        const serviceData = await serviceRes.json();
         if (data.success) {
-          setProducts(data.data);
+          const productsWithCategory = data.data.map((p: Product) => ({
+            ...p,
+            kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart'
+          }));
+          setProducts(productsWithCategory);
         } else {
           throw new Error(data.message || 'Gagal memuat data');
+        }
+        if (serviceData.success) {
+            setServices(serviceData.data.slice(0, 3));
         }
       } catch (err: any) {
         setError(err.message);
@@ -59,48 +92,34 @@ export default function ProdukPage() {
     fetchProducts();
   }, []);
 
-  // === Handlers Modal ===
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedProduct(null);
-  };
-
+  const handleCloseModal = () => { setShowModal(false); setSelectedProduct(null); };
   const handleShowModal = (product: Product) => {
     setSelectedProduct(product);
     setQuantity(1); 
-    setModalMessage(null); // <-- BARU: Reset pesan error/sukses
-    setIsSubmitting(false); // <-- BARU: Reset status loading
+    setModalMessage(null);
+    setIsSubmitting(false);
     setShowModal(true);
   };
-
-  const handleQuantityDecrease = () => {
-    setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
-  };
-  
+  const handleQuantityDecrease = () => setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
   const handleQuantityIncrease = () => {
     if (selectedProduct && selectedProduct.stok) {
       setQuantity((prev) => (prev < selectedProduct.stok! ? prev + 1 : prev));
     } else {
-      setQuantity((prev) => prev + 1); // Jika stok tidak ada, biarkan bertambah
+      setQuantity((prev) => prev + 1);
     }
   };
-
   const subtotal = selectedProduct ? selectedProduct.harga * quantity : 0;
 
-  // --- 3. FUNGSI "+ KERANJANG" (DIPERBARUI) ---
   const handleAddToCart = async () => {
+    // ... (Logika handleAddToCart SAMA, tidak berubah)
     setIsSubmitting(true);
     setModalMessage(null);
-
-    // 1. Cek localStorage
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      setModalMessage({ type: 'error', text: 'Anda harus login untuk menambah item ke keranjang.' });
+      setModalMessage({ type: 'error', text: 'Anda harus login untuk menambah item.' });
       setIsSubmitting(false);
       return; 
     }
-
-    // 2. Cek data JSON
     let userInfo;
     try {
       userInfo = JSON.parse(userInfoString);
@@ -109,25 +128,19 @@ export default function ProdukPage() {
       setIsSubmitting(false);
       return;
     }
-
-    // 3. Cek userId
     const userId = userInfo ? userInfo.userId : null;
     if (!userId) {
       setModalMessage({ type: 'error', text: 'Gagal mendapatkan ID user. Harap login kembali.' });
       setIsSubmitting(false);
       return; 
     }
-    
-    // 4. Cek Produk
     if (!selectedProduct) {
       setModalMessage({ type: 'error', text: 'Produk tidak ditemukan.' });
       setIsSubmitting(false);
       return;
     }
-
-    // 5. Susun data untuk dikirim
     const cartItemData = {
-      userId: userId, // <-- Sekarang PASTI ada isinya
+      userId: userId, 
       productId: selectedProduct._id,
       name: selectedProduct.nama, 
       price: selectedProduct.harga,
@@ -135,34 +148,73 @@ export default function ProdukPage() {
       itemType: 'Sparepart', 
       quantity: quantity
     };
-
-    // 6. Kirim ke Backend
     try {
       const response = await fetch('http://localhost:5000/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cartItemData)
       });
-
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Gagal menambah ke keranjang');
       }
-
-      // --- 5. SUKSES! (LOGIKA NOTIFIKASI BARU) ---
       handleCloseModal();
       setToastMessage(`${selectedProduct.nama} telah ditambahkan`);
       setShowToast(true);
-
     } catch (err: any) {
-      // Tampilkan error dari backend (termasuk error E11000 jika DB belum dibersihkan)
       setModalMessage({ type: 'error', text: err.message });
-      setIsSubmitting(false); // Biarkan tombol bisa diklik lagi jika error
+      setIsSubmitting(false);
     }
   };
 
-  // Style (tidak berubah)
+  // --- 3. FUNGSI BARU: Logika inti "Beli Langsung" ---
+  const proceedToCheckout = () => {
+    if (!selectedProduct) return;
+
+    // A. Buat item yang akan di-checkout
+    // Strukturnya HARUS MIRIP dengan CartItem, tapi _id-nya palsu
+    // agar halaman pembayaran bisa membedakannya (jika perlu)
+    const itemToCheckout = {
+      _id: `direct-${selectedProduct._id}`, // _id palsu
+      productId: selectedProduct._id,
+      name: selectedProduct.nama,
+      harga: selectedProduct.harga,
+      image: selectedProduct.imageUrl,
+      quantity: quantity,
+      itemType: 'Sparepart' // Asumsi dari halaman produk adalah sparepart
+    };
+
+    // B. Simpan ke localStorage
+    // Halaman /pembayaran akan membaca data dari sini
+    localStorage.setItem("checkoutItems", JSON.stringify([itemToCheckout]));
+
+    // C. Tutup semua modal & pindah halaman
+    handleCloseModal();
+    setShowWarningModal(false);
+    router.push('/pembayaran');
+  };
+
+  // --- 4. MODIFIKASI: handleBuyNowClick ---
+  // Sekarang hanya mengecek status toko
+  const handleBuyNowClick = () => {
+    if (!isStoreOpen) {
+        setShowWarningModal(true);
+    } else {
+        // Jika toko buka, LANGSUNG checkout
+        proceedToCheckout();
+    }
+  };
+  
+  // --- 5. MODIFIKASI: executeBuyProcess ---
+  // Fungsi ini dipanggil dari modal "Toko Tutup"
+  const executeBuyProcess = () => {
+    // Tetap lanjutkan checkout, meski toko tutup
+    proceedToCheckout(); 
+  };
+  // ------------------------------------------------
+
   const buttonStyle = {
+    // ... (Style SAMA, tidak berubah)
     height: '48px',
     fontSize: '1.1rem',
     fontWeight: 'bold' as const, 
@@ -172,6 +224,7 @@ export default function ProdukPage() {
   };
   
   const filteredAndSortedProducts = products
+    // ... (Logika filter SAMA, tidak berubah)
     .filter(product => {
       if (activeCategory === 'Semua') return true;
       if (activeCategory === 'Sparepart') return product.kategori === 'Sparepart';
@@ -184,16 +237,39 @@ export default function ProdukPage() {
         return a.harga - b.harga;
       }
       if (sortBy === 'Harga Tertinggi') {
-        return b.harga - b.harga;
+        return b.harga - a.harga; 
       }
       return 0;
     });
 
-
+  // --- 6. RENDER JSX (SAMA, tidak ada perubahan di sini) ---
   return (
     <>
-      {/* Konten Halaman Produk */}
       <Container className="py-5">
+        {/* ... (Header, Filter, Loading, Error, Daftar Produk... SEMUA SAMA) ... */}
+        <Row className="mb-4 align-items-center">
+          <Col md={8}>
+            <Nav variant="pills" className="filter-pills" activeKey={activeCategory}>
+              {['Semua', 'Sparepart', 'Ori', 'KW'].map((category) => (
+                <Nav.Item key={category}>
+                  <Nav.Link 
+                    eventKey={category} 
+                    onClick={() => setActiveCategory(category)}
+                  >
+                    {category}
+                  </Nav.Link>
+                </Nav.Item>
+              ))}
+            </Nav>
+          </Col>
+          <Col md={4} className="mt-3 mt-md-0">
+            <Form.Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="Terbaru">Urutkan: Terbaru</option>
+              <option value="Harga Terendah">Urutkan: Harga Terendah</option>
+              <option value="Harga Tertinggi">Urutkan: Harga Tertinggi</option>
+            </Form.Select>
+          </Col>
+        </Row>
         
         {loading && (
           <div className="text-center py-5">
@@ -202,9 +278,8 @@ export default function ProdukPage() {
         )}
         {error && <p className="text-danger text-center py-5">Error: {error}</p>}
 
-        {/* Product Grid */}
         <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
-          {!loading && !error && products.map((product) => (
+          {!loading && filteredAndSortedProducts.map((product) => (
             <Col key={product._id} className="mb-4">
               <Card className="h-100 shadow-sm border-0 rounded-3 overflow-hidden">
                 <Card.Img
@@ -227,9 +302,7 @@ export default function ProdukPage() {
                         })}
                       </Card.Text>
                     </div>
-                    
                     <div>
-                      {/* Tombol ini membuka modal */}
                       <Button
                         variant="primary"
                         className="btn-cart-icon"
@@ -243,100 +316,65 @@ export default function ProdukPage() {
               </Card>
             </Col>
           ))}
+          {!loading && filteredAndSortedProducts.length === 0 && (
+            <Col className="text-center py-5">
+              <h5 className="fw-bold text-dark">Oops! Produk tidak ditemukan</h5>
+              <p className="text-secondary">Coba ganti kata kunci filter Anda.</p>
+            </Col>
+          )}
         </Row>
       </Container>
 
-
-      {/* MODAL DETAIL PRODUK (DIPERBARUI) */}
       <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
-        
+        {/* ... (Modal Header SAMA) ... */}
         <Modal.Header closeButton className="border-0">
-          {selectedProduct && (
-            <Modal.Title as="h3" className="fw-bold text-dark">
-              {selectedProduct.nama}
-            </Modal.Title>
-          )}
+          {selectedProduct && <Modal.Title as="h3" className="fw-bold text-dark">{selectedProduct.nama}</Modal.Title>}
         </Modal.Header>
-
         <Modal.Body className="p-4 pt-0">
-          
           {selectedProduct && (
             <Row className="g-custom-20">
-              
+              {/* ... (Modal Col-7 Image SAMA) ... */}
               <Col md={7}>
-                <Image 
-                  src={selectedProduct.imageUrl} 
-                  alt={selectedProduct.nama} 
-                  fluid 
-                  rounded 
-                />
+                <Image src={selectedProduct.imageUrl} alt={selectedProduct.nama} fluid rounded />
               </Col>
-
               <Col md={5}>
-                <p className="text-secondary small">
-                  {selectedProduct.deskripsi || 'Deskripsi untuk produk ini belum tersedia.'}
-                </p>
-                
+                {/* ... (Deskripsi, Quantity Box, Subtotal SAMA) ... */}
+                <p className="text-secondary small">{selectedProduct.deskripsi || 'Deskripsi untuk produk ini belum tersedia.'}</p>
                 <div className="quantity-box border rounded-3 p-3 my-4">
                   <h6 className="fw-bold text-dark">Atur Jumlah</h6>
                   <div className="d-flex justify-content-between align-items-center mt-3">
-                    
                     <div className="d-flex align-items-center border rounded-3 bg-white">
                       <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityIncrease} disabled={isSubmitting}>+</Button>
-                      <Form.Control 
-                        type="number" 
-                        className="quantity-input-modal shadow-none" 
-                        value={quantity}
-                        readOnly
-                      />
+                      <Form.Control type="number" className="quantity-input-modal shadow-none" value={quantity} readOnly />
                       <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityDecrease} disabled={isSubmitting}>-</Button>
                     </div>
-
                     <span className="text-secondary small">Stok: <strong className="text-dark">{selectedProduct.stok || 'N/A'}</strong></span>
                   </div>
                 </div>
-
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <span className="text-secondary fs-5">Subtotal</span>
-                  <span className="fw-bold text-dark fs-5">
-                    {subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
-                  </span>
+                  <span className="fw-bold text-dark fs-5">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</span>
                 </div>
                 
-                {/* Tampilkan pesan error di sini */}
                 {modalMessage && modalMessage.type === 'error' && (<Alert variant="danger" className="py-2 small">{modalMessage.text}</Alert>)}
                 
                 <div className="d-flex flex-column gap-2">
-                  <Button 
-                    variant="primary" 
-                    className="w-100 rounded-3 btn-add-to-cart"
-                    onClick={handleAddToCart} 
-                    disabled={isSubmitting} 
-                  >
-                    {isSubmitting ? (
-                      <Loader2 size={20} className="animate-spin" /> 
-                    ) : (
-                      <><i className="bi bi-cart-plus me-2"></i>+ Keranjang</>
-                    )}
+                  <Button variant="primary" className="w-100 rounded-3 btn-add-to-cart" onClick={handleAddToCart} disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <><i className="bi bi-cart-plus me-2"></i>+ Keranjang</>}
                   </Button>
                   
+                  {/* Tombol ini sekarang memanggil handleBuyNowClick */}
                   <Button 
                     variant="outline-primary" 
-                    className="w-100 rounded-3"
-                    style={buttonStyle}
+                    className="w-100 rounded-3" 
+                    style={buttonStyle} 
                     disabled={isSubmitting}
+                    onClick={handleBuyNowClick} // <-- (Sudah benar)
                   >
                     Beli Langsung
                   </Button>
 
-                  <Button 
-                    variant="outline-secondary" 
-                    className="w-100 rounded-3"
-                    style={buttonStyle}
-                    disabled={isSubmitting}
-                  >
-                    <i className="bi bi-chat-dots me-2"></i>Chat Toko
-                  </Button>
+                  <Button variant="outline-secondary" className="w-100 rounded-3" style={buttonStyle} disabled={isSubmitting}><i className="bi bi-chat-dots me-2"></i>Chat Toko</Button>
                 </div>
               </Col>
             </Row>
@@ -344,24 +382,49 @@ export default function ProdukPage() {
         </Modal.Body>
       </Modal>
 
-      {/* --- 4. TOAST NOTIFIKASI (BARU) --- */}
-      <ToastContainer
-        position="bottom-center" // Sesuai permintaan Anda "di bawah tengah"
-        className="p-3"
-        style={{ zIndex: 9999 }} // Pastikan di atas segalanya
-      >
-        <Toast 
-          onClose={() => setShowToast(false)} 
-          show={showToast} 
-          delay={3000} // Tampil selama 3 detik
-          autohide
-          bg="dark" // Latar belakang gelap agar terlihat jelas
-        >
-          <Toast.Body className="text-white text-center fw-bold">
-            {toastMessage}
-          </Toast.Body>
+      {/* ... (ToastContainer SAMA) ... */}
+      <ToastContainer position="bottom-center" className="p-3" style={{ zIndex: 9999 }}>
+        <Toast onClose={() => setShowToast(false)} show={showToast} delay={3000} autohide bg="dark">
+          <Toast.Body className="text-white text-center fw-bold">{toastMessage}</Toast.Body>
         </Toast>
       </ToastContainer>
+
+      {/* --- Modal Peringatan Toko Tutup (SAMA, tapi onClick-nya sekarang memanggil executeBuyProcess yang sudah diubah) --- */}
+      <Modal 
+        show={showWarningModal} 
+        onHide={() => setShowWarningModal(false)} 
+        centered
+        backdrop="static"
+      >
+        <Modal.Body className="text-center p-4">
+          <div className="mb-3 text-warning d-flex justify-content-center">
+            <div className="bg-warning bg-opacity-10 p-3 rounded-circle">
+                <AlertTriangle size={48} />
+            </div>
+          </div>
+          <h4 className="fw-bold text-dark mb-2">Toko Sedang Tutup</h4>
+          <p className="text-muted mb-4">
+            Terima kasih sudah memesan! <br/>
+            Namun, mohon maaf saat ini toko sedang tutup. <br/>
+            <span className="fw-bold text-dark">Pengiriman akan kami proses segera setelah toko buka kembali.</span>
+          </p>
+          
+          <div className="d-flex gap-2 justify-content-center">
+            <Button variant="light" className="flex-fill fw-bold rounded-pill" onClick={() => setShowWarningModal(false)}>
+              Batal
+            </Button>
+            <Button 
+                variant="primary" 
+                className="flex-fill fw-bold rounded-pill" 
+                style={{ backgroundColor: '#0d6efd', borderColor: '#0d6efd' }}
+                onClick={executeBuyProcess} // <-- (Sudah benar)
+            >
+              <Truck size={18} className="me-2" />
+              Lanjut Beli
+            </Button>
+          </div>
+        </Modal.Body>
+      </Modal>
     </>
   );
 }
