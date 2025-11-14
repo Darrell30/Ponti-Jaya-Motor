@@ -15,6 +15,7 @@ const Service = require('./models/service');
 const User = require('./models/User'); 
 const Otp = require('./models/Otp'); 
 const Cart = require('./models/Cart'); 
+const StoreConfig = require('./models/StoreConfig');
 
 // Variabel Lingkungan
 const PORT = process.env.PORT || 3000;
@@ -130,7 +131,43 @@ const server = http.createServer(async (req, res) => {
             return sendResponse(res, 500, { success: false, message: 'Gagal menghapus produk' });
         }
     }
-    // ========================================================================
+
+    if (path === '/api/store/status' && method === 'GET') {
+        console.log('[0] Menerima request GET /api/store/status...');
+        try {
+            let config = await StoreConfig.findOne();
+            if (!config) {
+                // Jika config belum ada di DB, buat baru (default Buka)
+                config = await StoreConfig.create({ isStoreOpen: true });
+            }
+            return sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
+        } catch (error) {
+            console.error('[0] ERROR GET Store Status:', error);
+            return sendResponse(res, 500, { success: false, message: 'Gagal mengambil status toko' });
+        }
+    }
+
+    // PUT Status Toko (Untuk Mengubah Buka/Tutup)
+    if (path === '/api/store/status' && method === 'PUT') {
+        console.log('[0] Menerima request PUT /api/store/status...');
+        try {
+            const body = await getRequestBody(req);
+
+            // Cari dan update (atau buat baru jika belum ada)
+            const config = await StoreConfig.findOneAndUpdate(
+                {}, // Cari satu-satunya dokumen config
+                { isStoreOpen: body.isStoreOpen }, // Set data baru
+                { new: true, upsert: true } // Opsi: kembalikan data baru & buat jika belum ada
+            );
+
+            console.log(`[Store Status] Toko sekarang: ${config.isStoreOpen ? 'BUKA' : 'TUTUP'}`);
+            return sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
+        } catch (error) {
+            console.error('[0] ERROR PUT Store Status:', error);
+            return sendResponse(res, 500, { success: false, message: 'Gagal update status toko' });
+        }
+    }
+    
 
 
     //Routing Sparepart 
