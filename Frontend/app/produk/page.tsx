@@ -92,34 +92,51 @@ export default function ProdukPage() {
     setIsSubmitting(true);
     setModalMessage(null);
 
-    // 1. Cek Login & Ambil UserID
+    // 1. Cek localStorage
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
       setModalMessage({ type: 'error', text: 'Anda harus login untuk menambah item ke keranjang.' });
       setIsSubmitting(false);
       return; 
     }
-    const userInfo = JSON.parse(userInfoString);
-    const userId = userInfo.userId;
 
+    // 2. Cek data JSON
+    let userInfo;
+    try {
+      userInfo = JSON.parse(userInfoString);
+    } catch (e) {
+      setModalMessage({ type: 'error', text: 'Sesi login Anda rusak. Harap login kembali.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 3. Cek userId
+    const userId = userInfo ? userInfo.userId : null;
+    if (!userId) {
+      setModalMessage({ type: 'error', text: 'Gagal mendapatkan ID user. Harap login kembali.' });
+      setIsSubmitting(false);
+      return; 
+    }
+    
+    // 4. Cek Produk
     if (!selectedProduct) {
       setModalMessage({ type: 'error', text: 'Produk tidak ditemukan.' });
       setIsSubmitting(false);
       return;
     }
-    
-    // 3. Siapkan data (frontend kirim 'name' dan 'price')
+
+    // 5. Susun data untuk dikirim
     const cartItemData = {
-      userId: userId,
+      userId: userId, // <-- Sekarang PASTI ada isinya
       productId: selectedProduct._id,
-      name: selectedProduct.nama,   // <-- Frontend kirim 'name'
-      price: selectedProduct.harga, // <-- Frontend kirim 'price'
-      image: selectedProduct.imageUrl,
+      name: selectedProduct.nama, 
+      price: selectedProduct.harga,
+      image: selectedProduct.imageUrl, 
       itemType: 'Sparepart', 
       quantity: quantity
     };
 
-    // 4. Kirim data ke backend
+    // 6. Kirim ke Backend
     try {
       const response = await fetch('http://localhost:5000/api/cart/add', {
         method: 'POST',
@@ -138,6 +155,7 @@ export default function ProdukPage() {
       setShowToast(true);
 
     } catch (err: any) {
+      // Tampilkan error dari backend (termasuk error E11000 jika DB belum dibersihkan)
       setModalMessage({ type: 'error', text: err.message });
       setIsSubmitting(false); // Biarkan tombol bisa diklik lagi jika error
     }
@@ -152,6 +170,24 @@ export default function ProdukPage() {
     alignItems: 'center',
     justifyContent: 'center',
   };
+  
+  const filteredAndSortedProducts = products
+    .filter(product => {
+      if (activeCategory === 'Semua') return true;
+      if (activeCategory === 'Sparepart') return product.kategori === 'Sparepart';
+      if (activeCategory === 'Ori') return true; 
+      if (activeCategory === 'KW') return true;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'Harga Terendah') {
+        return a.harga - b.harga;
+      }
+      if (sortBy === 'Harga Tertinggi') {
+        return b.harga - b.harga;
+      }
+      return 0;
+    });
 
 
   return (
@@ -266,14 +302,10 @@ export default function ProdukPage() {
                     {subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
                   </span>
                 </div>
-
-                {/* --- PESAN ERROR MODAL (TETAP DI SINI) --- */}
-                {modalMessage && modalMessage.type === 'error' && (
-                  <Alert variant="danger" className="py-2 small">
-                    {modalMessage.text}
-                  </Alert>
-                )}
-
+                
+                {/* Tampilkan pesan error di sini */}
+                {modalMessage && modalMessage.type === 'error' && (<Alert variant="danger" className="py-2 small">{modalMessage.text}</Alert>)}
+                
                 <div className="d-flex flex-column gap-2">
                   <Button 
                     variant="primary" 

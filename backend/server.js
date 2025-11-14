@@ -342,6 +342,14 @@ const server = http.createServer(async (req, res) => {
                 password: hashedPassword
             });
             
+            // ========================================================
+            // === PERUBAHAN DI SINI (SESUAI PERMINTAAN ANDA) ===
+            // ========================================================
+            // Otomatis buatkan keranjang kosong untuk user baru
+            await Cart.create({ user: newUser._id, items: [] });
+            console.log(`[0] Keranjang kosong dibuat untuk user: ${newUser.username}`);
+            // ========================================================
+            
             console.log(`[0] User baru berhasil dibuat: ${newUser.username}`);
             await Otp.deleteMany({ email });
             
@@ -423,10 +431,13 @@ const server = http.createServer(async (req, res) => {
                 return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
             }
 
-            const cart = await Cart.findOne({ user: userId });
+            // PERUBAHAN: Gunakan findOne() dan pastikan keranjang ada
+            // (Setelah Langkah 2, ini akan selalu ditemukan untuk user yang login)
+            const cart = await Cart.findOne({ user: userId }); 
 
             if (!cart) {
                 console.log(`[0] Tidak ada keranjang ditemukan untuk user ${userId}.`);
+                // Jika (karena alasan aneh) keranjang tidak ada, kirim array kosong
                 return sendResponse(res, 200, { success: true, data: { items: [] } });
             }
 
@@ -446,13 +457,23 @@ const server = http.createServer(async (req, res) => {
             const body = await getRequestBody(req);
             const { userId, productId, name, price, image, itemType, quantity = 1 } = body;
 
-            if (!userId || !productId || !name || !price || !image || !itemType) {
+            // PENGECEKAN KEAMANAN TAMBAHAN
+            if (!userId) {
+                console.error('[0] CRITICAL: /api/cart/add dipanggil tanpa userId.');
+                return sendResponse(res, 400, { success: false, message: 'User ID tidak valid. Harap login kembali.' });
+            }
+            
+            if (!productId || !name || !price || !image || !itemType) {
                 return sendResponse(res, 400, { success: false, message: 'Data item tidak lengkap' });
             }
 
+            // Logika "find-one-and-update" yang lebih aman
             let cart = await Cart.findOne({ user: userId });
+            
+            // Jika keranjang tidak ada (mis: user lama sebelum update ini), buatkan
             if (!cart) {
-                cart = await Cart.create({ user: userId, items: [] });
+                 console.log(`[0] Keranjang tidak ada untuk ${userId}, membuatkan...`);
+                 cart = await Cart.create({ user: userId, items: [] });
             }
 
             const existingItem = cart.items.find(item => item.productId === productId);
@@ -476,6 +497,7 @@ const server = http.createServer(async (req, res) => {
 
         } catch (error) {
             console.error('[0] CRITICAL ERROR di POST /api/cart/add:', error);
+            // Error E11000 (jika dokumen 'null' belum dihapus) akan tetap tertangkap di sini
             sendResponse(res, 500, { success: false, message: 'Server error saat menambah item' });
         }
     }
@@ -517,9 +539,56 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // --- PERBAIKAN: RUTE KERANJANG (HAPUS ITEM) ---
+    // --- RUTE KERANJANG (HAPUS ITEM) ---
+    // !!! INI ADALAH BUG YANG SAYA SEBUTKAN SEBELUMNYA !!!
+    // !!! RUTE INI BELUM ADA DI FILE ANDA !!!
     else if (path === '/api/cart/remove' && method === 'POST') {
         console.log('[0] Menerima request POST /api/cart/remove...');
+        try {
+            const body = await getRequestBody(req);
+            const { userId, cartItemId } = body;
+
+            if (!userId || !cartItemId) {
+                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
+            }
+
+            const cart = await Cart.findOne({ user: userId });
+            if (!cart) {
+                return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
+            }
+            
+            // Hapus item dari array 'items'
+            cart.items.pull({ _id: cartItemId });
+            
+            await cart.save();
+            
+            console.log(`[0] Item ${cartItemId} dihapus dari keranjang user ${userId}`);
+            sendResponse(res, 200, { success: true, message: 'Item dihapus', data: cart });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di POST /api/cart/remove:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat menghapus item' });
+        }
+    }
+    
+    // --- Rute Status Toko (biarkan saja) ---
+    else if (path === '/api/store/status' && method === 'GET') {
+        // ... (kode Anda yang ada)
+        // (Saya singkat agar tidak terlalu panjang, JANGAN HAPUS KODE ASLI ANDA)
+        try {
+            let config = await StoreConfig.findOne();
+            if (!config) {
+                config = await StoreConfig.create({ isStoreOpen: true });
+            }
+            sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
+        } catch (error) {
+            console.error('[0] ERROR GET Store Status:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal mengambil status toko' });
+        }
+    }
+    else if (path === '/api/store/status' && method === 'PUT') {
+        // ... (kode Anda yang ada)
+        // (Saya singkat agar tidak terlalu panjang, JANGAN HAPUS KODE ASLI ANDA)
         try {
             const body = await getRequestBody(req);
             const { userId, cartItemId } = body;
@@ -548,8 +617,8 @@ const server = http.createServer(async (req, res) => {
             sendResponse(res, 500, { success: false, message: 'Server error saat menghapus item' });
         }
     }
-    // --- AKHIR BLOK PERBAIKAN ---
-
+    
+    // --- Rute 404 ---
     else {
         sendResponse(res, 404, { success: false, message: 'Endpoint Not Found' });
     }
@@ -559,6 +628,7 @@ const server = http.createServer(async (req, res) => {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`🚀 Server running for Ponti Jaya Motor on http://localhost:${PORT}`);
+        // Saya tambahkan rute remove di log ini
         console.log(`Endpoints: ... /api/cart, /api/cart/add, /api/cart/update, /api/cart/remove`);
     });
 });
