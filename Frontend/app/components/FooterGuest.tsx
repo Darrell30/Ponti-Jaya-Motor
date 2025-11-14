@@ -41,7 +41,7 @@ function FooterGuest() {
             <Link href="/kontak" className="nav-link text-white px-2">Hubungi Kami</Link>
             <Button 
               as={Link} 
-              href="/register" 
+              href="/daftar" 
               variant="primary"
             >
               Daftar

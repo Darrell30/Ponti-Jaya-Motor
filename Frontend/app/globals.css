@@ -399,3 +399,54 @@ a {
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
+
+/* ================================== */
+/* === Style Filter Pills (Produk) === */
+/* ================================== */
+
+/* Pembungkus Nav */
+.filter-pills {
+  /* Biarkan tombol-tombolnya berbaris */
+  flex-wrap: nowrap;
+  overflow-x: auto; /* Memungkinkan scroll horizontal di HP */
+  padding-bottom: 1rem; /* Jarak dari konten */
+}
+
+/* Tombol Filter (Default / Tidak Aktif) */
+.filter-pills .nav-link {
+  background-color: #fff; /* Latar putih */
+  color: #495057; /* Teks abu-abu */
+  font-weight: 500;
+  border: 1px solid #dee2e6; /* Border abu-abu tipis */
+  border-radius: 50rem; /* Sangat bulat (rounded-pill) */
+  padding: 0.5rem 1.2rem;
+  margin-right: 0.75rem;
+  white-space: nowrap; /* Agar teks tidak terpotong */
+  transition: all 0.2s ease-in-out;
+}
+
+/* Tombol Filter (Saat di-hover) */
+.filter-pills .nav-link:hover {
+  background-color: #f8f9fa; /* Sedikit lebih gelap */
+}
+
+/* ================================== */
+/* === Style Pilihan Pembayaran === */
+/* ================================== */
+
+.payment-option {
+  border: 2px solid #dee2e6; /* Border abu-abu */
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.payment-option:hover {
+  background-color: #f8f9fa; /* Latar sedikit abu-abu saat hover */
+}
+
+/* Style saat dipilih */
+.payment-option.selected {
+  border-color: #0d6efd; /* Border biru */
+  background-color: #f0f7ff; /* Latar biru muda */
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.1);
+}
