@@ -40,7 +40,7 @@ export default function NavbarProdukGuest() {
             <Link href="/login" passHref legacyBehavior>
               <Button variant="outline-primary" className="fw-bold">Masuk</Button>
             </Link>
-            <Link href="/register" passHref legacyBehavior>
+            <Link href="/daftar" passHref legacyBehavior>
               <Button variant="primary" className="fw-bold">Daftar</Button>
             </Link>
           </Col>

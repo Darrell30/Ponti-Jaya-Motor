@@ -328,9 +328,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- RUTE REGISTRASI PENGGUNA ---
-    else if (path === '/api/register' && method === 'POST') {
+    else if (path === '/api/daftar' && method === 'POST') {
         
-        console.log('[0] Menerima request POST /api/register...'); 
+        console.log('[0] Menerima request POST /api/daftar...'); 
         
         try {
             const body = await getRequestBody(req); 
@@ -376,7 +376,7 @@ const server = http.createServer(async (req, res) => {
             });
 
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di /api/register:', error);
+            console.error('[0] CRITICAL ERROR di /api/daftar:', error);
             const message = error.name === 'ValidationError' ? error.message : 'Server error saat membuat user';
             sendResponse(res, 400, { success: false, message: message });
         }
