@@ -147,7 +147,7 @@ a {
 /* Kustom Gutter Sesuai Figma (20px) */
 /* Digunakan untuk Row di dalam konten halaman */
 .g-custom-20 {
-  --bs-gutter-x: 20px; /* Jarak horizontal */
+  --bs-gutter-x: 20px; /* <-- TYPO SUDAH DIPERBAIKI (dari 2f0px) */
   --bs-gutter-y: 20px; /* Jarak vertikal */
 }
 
@@ -258,6 +258,17 @@ a {
 .dropdown-user-logout:focus {
   color: #fff !important;
   background-color: #dc3545 !important; /* Merah */
+}
+
+/* Fix z-index dropdown user agar di atas navbar produk */
+.user-avatar-dropdown .dropdown-menu {
+  padding: 0.5rem !important;
+  z-index: 1050 !important;
+}
+
+
+.main-navbar {
+  z-index: 1030 !important;
 }
 
 /* ================================== */
@@ -449,4 +460,72 @@ a {
   border-color: #0d6efd; /* Border biru */
   background-color: #f0f7ff; /* Latar biru muda */
   box-shadow: 0 4px 12px rgba(13, 110, 253, 0.1);
+}
+
+
+/* ================================== */
+/* === KODE RESPONSif (MOBILE) === */
+/* ================================== */
+
+/* Target: Terapkan style ini HANYA jika lebar layar 
+  di bawah 768px (breakpoint 'md' Bootstrap) 
+*/
+@media (max-width: 767.98px) {
+
+  /* Memperbaiki container kustom Anda. 
+    Hapus lebar '1720px' di HP agar tidak "zoom out".
+  */
+  .container-figma {
+    max-width: none !important; /* Hapus max-width desktop */
+  }
+
+  /* Mengecilkan padding di panel "Tentang Kami" 
+    yang terlalu besar di HP.
+  */
+  .about-us-panel {
+    padding: 1.5rem; /* Kurangi dari 3rem */
+  }
+
+  /* Mengecilkan tombol-tombol kontak di HP.
+  */
+  .btn-contact-whatsapp, 
+  .btn-contact-email {
+    font-size: 1rem; /* Kecilkan teks tombol */
+    padding: 0.6rem 1.2rem; /* Kecilkan padding tombol */
+  }
+
+  .btn-contact-whatsapp i, 
+  .btn-contact-email i {
+    font-size: 1.2rem; /* Kecilkan ikon di dalam tombol */
+  }
+
+  /* Memperbaiki stepper pelacak pesanan.
+    Ubah dari horizontal menjadi vertikal di HP.
+  */
+  .stepper-wrapper {
+    flex-direction: column; /* Susun ke bawah */
+    align-items: flex-start; /* Rata kiri */
+    gap: 1.5rem; /* Beri jarak antar item */
+  }
+
+  .stepper-item {
+    flex: 1;
+    width: 100%; /* Buat setiap item full-width */
+  }
+
+  .stepper-line {
+    display: none; /* Sembunyikan garis horizontal (tidak relevan di layout vertikal) */
+  }
+
+  /* Pindahkan label agar ada di samping ikon 
+    (setelah layout diubah jadi vertikal)
+  */
+  .stepper-label {
+    text-align: left;
+    margin-top: 0;
+    margin-left: 3.5rem; /* Jarak selebar ikon + spasi */
+    position: relative;
+    top: -30px; /* Tarik ke atas di samping ikon */
+    color: #212529; /* Pastikan label terlihat */
+  }
 }
