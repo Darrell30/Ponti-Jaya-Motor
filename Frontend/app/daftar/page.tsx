@@ -199,9 +199,13 @@ export default function DaftarPage() {
           </form>
         </div>
         <div className="card-footer bg-light border-0 text-center py-3">
-           <Link href="/login" className="text-decoration-none small text-muted fw-medium">
-             Sudah punya akun? Kembali ke Login
-           </Link>
+          <span className="text-decoration-none small text-muted fw-medium">
+            Sudah punya akun?
+          </span>
+          <Link href="/login" className="text-decoration-none small text-primary fw-medium">
+            Kembali ke Login
+          </Link>
+
         </div>
       </div>
     </div>
