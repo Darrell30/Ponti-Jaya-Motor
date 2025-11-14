@@ -1,47 +1,175 @@
 // app/keranjang/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { Container, Row, Col, Card, Button, Form, Image, ListGroup, Modal } from 'react-bootstrap';
+import { useState, useEffect } from 'react';
+import { Container, Row, Col, Card, Button, Form, Image, ListGroup, Modal, Spinner } from 'react-bootstrap';
 import Link from 'next/link';
 
 // Tipe data item keranjang
 interface CartItem {
-  id: string;
-  name: string;
-  price: number;
+  _id: string; 
+  productId: string; 
+  name: string; // Di frontend kita akan sebut 'name'
+  harga: number; // <-- DIPERBAIKI: dari 'price' menjadi 'harga'
   image: string;
   quantity: number;
+  itemType: 'Sparepart' | 'Service';
 }
 
-// DATA DUMMY (Supaya halaman langsung tampil)
-const initialCartItems: CartItem[] = [
-  { id: '1', name: 'Kampas rem', price: 50000, image: '/images/produk/kampas rem.jpg', quantity: 1 },
-  { id: '2', name: 'Jasa ganti oli', price: 60000, image: '/images/jasa/servis-rutin.jpg', quantity: 1 },
-  { id: '3', name: 'Klahar roda', price: 10000, image: '/images/produk/klahar roda.jpg', quantity: 2 },
-];
-
 export default function KeranjangPage() {
-  const [cartItems, setCartItems] = useState(initialCartItems);
-  
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // --- State untuk "Pilih Semua" ---
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
   // === STATE UNTUK ALAMAT & MODAL ===
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [address, setAddress] = useState("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat");
-  const [tempAddress, setTempAddress] = useState(address); // Untuk menampung inputan sementara
+  const [tempAddress, setTempAddress] = useState(address);
 
-  // === HANDLERS ===
-  const handleOpenAddressModal = () => {
-    setTempAddress(address); // Reset input ke alamat saat ini
-    setShowAddressModal(true);
+  // Ambil UserID dari localStorage
+  useEffect(() => {
+    // Cek info user dari login
+    // Pastikan key-nya "userInfo" sesuai dengan file login/page.tsx
+    const userInfoString = localStorage.getItem("userInfo"); 
+    if (userInfoString) {
+      const userInfo = JSON.parse(userInfoString);
+      setUserId(userInfo.userId); 
+    } else {
+      setLoading(false);
+      setError("Anda harus login untuk melihat keranjang.");
+    }
+  }, []);
+
+  // Ambil data Keranjang SETELAH userId didapat
+  useEffect(() => {
+    if (userId) {
+      fetchCart(userId);
+    }
+  }, [userId]); 
+
+  // Fungsi Mengambil data keranjang
+  const fetchCart = async (currentUserId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`http://localhost:5000/api/cart?userId=${currentUserId}`);
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Gagal mengambil data keranjang');
+      }
+      
+      // Backend mengirim 'data: cart'
+      setCartItems(data.data.items || []); // Memastikan items adalah array
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Fungsi Update Kuantitas
+  const handleUpdateQuantity = async (cartItemId: string, newQuantity: number) => {
+    if (!userId || newQuantity < 1) return; 
+
+    // Optimistic UI update
+    setCartItems(currentItems =>
+      currentItems.map(item =>
+        item._id === cartItemId ? { ...item, quantity: newQuantity } : item
+      )
+    );
+
+    try {
+      const response = await fetch('http://localhost:5000/api/cart/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, cartItemId, quantity: newQuantity })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Gagal update kuantitas');
+      }
+      // Set state dari server
+      setCartItems(data.data.items);
+    } catch (err: any) {
+      setError(err.message);
+      if (userId) fetchCart(userId); // Rollback jika gagal
+    }
+  };
+
+  // Fungsi Hapus Item
+  const handleRemoveItem = async (cartItemId: string) => {
+    if (!userId) return;
+
+    // Optimistic UI update
+    setCartItems(currentItems => currentItems.filter(item => item._id !== cartItemId));
+    // Juga hapus dari item yang dipilih
+    setSelectedItems(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      newSelected.delete(cartItemId);
+      return newSelected;
+    });
+
+    try {
+      const response = await fetch('http://localhost:5000/api/cart/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, cartItemId })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Gagal menghapus item');
+      }
+      // Set state dari server
+      setCartItems(data.data.items);
+    } catch (err: any) {
+      setError(err.message);
+      if (userId) fetchCart(userId); // Rollback jika gagal
+    }
+  };
+
+  // Fungsi "Pilih Semua"
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allItemIds = cartItems.map(item => item._id);
+      setSelectedItems(new Set(allItemIds));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  // Fungsi "Pilih Satu Item"
+  const handleSelectItem = (itemId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId); 
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  // Handlers Modal Alamat
+  const handleOpenAddressModal = () => {
+    setTempAddress(address); 
+    setShowAddressModal(true);
+  };
   const handleSaveAddress = () => {
-    setAddress(tempAddress); // Simpan alamat baru
+    setAddress(tempAddress); 
     setShowAddressModal(false);
   };
 
-  // Kalkulasi Total
-  const total = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  // Kalkulasi Total (hanya item yang dipilih)
+  const total = cartItems
+    .filter(item => selectedItems.has(item._id)) 
+    .reduce((acc, item) => acc + (item.harga * item.quantity), 0); 
+
+  // Cek apakah semua item sedang dipilih
+  const isAllSelected = cartItems.length > 0 && selectedItems.size === cartItems.length;
 
   return (
     // Background abu-abu
@@ -59,41 +187,89 @@ export default function KeranjangPage() {
                   type="checkbox"
                   id="pilih-semua"
                   label={<span className="fw-bold text-dark">Pilih Semua</span>}
+                  checked={isAllSelected}
+                  onChange={handleSelectAll}
+                  disabled={loading || cartItems.length === 0}
                 />
               </Card.Header>
-              <ListGroup variant="flush">
-                {cartItems.map((item) => (
-                  <ListGroup.Item key={item.id} className="py-3 px-4">
-                    <Row className="align-items-center">
-                      
-                      <Col xs="auto">
-                        <Form.Check type="checkbox" id={`item-${item.id}`} />
-                      </Col>
-                      <Col xs="auto" className="pe-0">
-                        <Image src={item.image} alt={item.name} rounded style={{ width: '60px', height: '60px', objectFit: 'cover' }} />
-                      </Col>
-                      
-                      <Col>
-                        <h6 className="mb-1 fw-bold text-dark">{item.name}</h6>
-                        <p className="fw-bold text-dark mb-0">
-                          {item.price.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
-                        </p>
-                      </Col>
-                      
-                      <Col xs="auto" className="d-flex align-items-center justify-content-end">
-                        <Button variant="link" className="text-danger p-0 me-3">
-                          <i className="bi bi-trash fs-5"></i>
-                        </Button>
-                        <div className="d-flex align-items-center">
-                          <Button variant="outline-secondary" className="btn-quantity">-</Button>
-                          <span className="quantity-display">{item.quantity}</span>
-                          <Button variant="outline-secondary" className="btn-quantity">+</Button>
-                        </div>
-                      </Col>
-                    </Row>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
+              
+              {/* --- TAMPILAN LOADING / ERROR / KOSONG --- */}
+              {loading && (
+                <div className="text-center p-5">
+                  <Spinner animation="border" />
+                  <p className="mt-2 text-muted">Memuat keranjang Anda...</p>
+                </div>
+              )}
+              {error && (
+                <div className="alert alert-danger m-3">{error}</div>
+              )}
+              {!loading && !error && cartItems.length === 0 && (
+                <div className="text-center p-5">
+                  <i className="bi bi-cart-x" style={{ fontSize: '3rem', color: '#6c757d' }}></i>
+                  <h5 className="mt-3 text-muted">Keranjang Anda kosong</h5>
+                  <Link href="/produk" passHref legacyBehavior>
+                     <Button variant="primary" className="mt-2 fw-bold">Mulai Belanja</Button>
+                  </Link>
+                </div>
+              )}
+
+              {/* --- DAFTAR ITEM KERANJANG (DARI STATE) --- */}
+              {!loading && !error && cartItems.length > 0 && (
+                <ListGroup variant="flush">
+                  {cartItems.map((item) => (
+                    <ListGroup.Item key={item._id} className="py-3 px-4">
+                      <Row className="align-items-center">
+                        
+                        <Col xs="auto">
+                          <Form.Check 
+                            type="checkbox" 
+                            id={`item-${item._id}`}
+                            checked={selectedItems.has(item._id)}
+                            onChange={() => handleSelectItem(item._id)}
+                          />
+                        </Col>
+                        <Col xs="auto" className="pe-0">
+                          <Image src={item.image} alt={item.name} rounded style={{ width: '60px', height: '60px', objectFit: 'cover' }} />
+                        </Col>
+                        
+                        <Col>
+                          <h6 className="mb-1 fw-bold text-dark">{item.name}</h6>
+                          <p className="fw-bold text-dark mb-0">
+                            {item.harga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
+                          </p>
+                        </Col>
+                        
+                        <Col xs="auto" className="d-flex align-items-center justify-content-end">
+                          <Button 
+                            variant="link" 
+                            className="text-danger p-0 me-3"
+                            onClick={() => handleRemoveItem(item._id)}
+                          >
+                            <i className="bi bi-trash fs-5"></i>
+                          </Button>
+                          <div className="d-flex align-items-center">
+                            <Button 
+                              variant="outline-secondary" 
+                              className="btn-quantity"
+                              onClick={() => handleUpdateQuantity(item._id, item.quantity - 1)}
+                            >
+                              -
+                            </Button>
+                            <span className="quantity-display">{item.quantity}</span>
+                            <Button 
+                              variant="outline-secondary" 
+                              className="btn-quantity"
+                              onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)}
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </Col>
+                      </Row>
+                    </ListGroup.Item>
+                  ))}
+                </ListGroup>
+              )}
             </Card>
           </Col>
 
@@ -112,10 +288,8 @@ export default function KeranjangPage() {
 
                 <hr className="my-3" />
 
-                {/* === BAGIAN ALAMAT === */}
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <h6 className="fw-bold text-dark mb-0">Alamat Pengiriman</h6>
-                  {/* Tombol Ubah memanggil Modal */}
                   <Button 
                     variant="link" 
                     size="sm" 
@@ -126,12 +300,16 @@ export default function KeranjangPage() {
                   </Button>
                 </div>
                 
-                {/* Menampilkan Alamat */}
                 <p className="text-secondary mb-3 small" style={{ lineHeight: '1.5' }}>
                   {address}
                 </p>
 
-                <Button variant="primary" size="lg" className="w-100 fw-bold mt-2">
+                <Button 
+                  variant="primary" 
+                  size="lg" 
+                  className="w-100 fw-bold mt-2"
+                  disabled={selectedItems.size === 0} 
+                >
                   Beli Sekarang
                 </Button>
               </Card.Body>
@@ -141,9 +319,7 @@ export default function KeranjangPage() {
         </Row>
       </Container>
 
-      {/* ================================== */}
-      {/* === MODAL UBAH ALAMAT (BARU) === */}
-      {/* ================================== */}
+      {/* === MODAL UBAH ALAMAT === */}
       <Modal show={showAddressModal} onHide={() => setShowAddressModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Ubah Alamat Pengiriman</Modal.Title>

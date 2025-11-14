@@ -7,13 +7,16 @@ const { v2: cloudinary } = require('cloudinary');
 const busboy = require('busboy');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const url = require('url'); 
 
 // Impor Model
 const Sparepart = require('./models/sparepart'); 
 const Service = require('./models/service'); 
 const User = require('./models/User'); 
 const Otp = require('./models/Otp'); 
+const Cart = require('./models/Cart'); 
 
+// ... (Konfigurasi, Koneksi DB, Fungsi Utilitas - tidak berubah) ...
 // Variabel Lingkungan
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI; 
@@ -96,18 +99,21 @@ const getRequestBody = (req) => {
 
 // Logika Utama Server
 const server = http.createServer(async (req, res) => {
-    const { url, method } = req;
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const path = parsedUrl.pathname; 
+    const method = req.method;
     
     if (method === 'OPTIONS') {
         sendResponse(res, 204, '');
         return;
     }
 
+    // ... (Routing Sparepart, Service, Upload, Auth... tidak berubah) ...
     //Routing Sparepart 
-    if (url.startsWith('/api/spareparts')) {
+    if (path.startsWith('/api/spareparts')) {
         
         // GET /api/spareparts (Get All)
-        if (url === '/api/spareparts' && method === 'GET') {
+        if (path === '/api/spareparts' && method === 'GET') {
             
             console.log('[0] Menerima request GET /api/spareparts...'); 
             
@@ -123,7 +129,7 @@ const server = http.createServer(async (req, res) => {
             }
         } 
         // POST /api/spareparts (Create)
-        else if (url === '/api/spareparts' && method === 'POST') {
+        else if (path === '/api/spareparts' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
                 const newSparepart = await Sparepart.create(body);
@@ -135,10 +141,10 @@ const server = http.createServer(async (req, res) => {
         } 
         
         // PUT /api/spareparts/:id (Update)
-        else if (method === 'PUT' && url.split('/').length === 4) {
+        else if (method === 'PUT' && path.split('/').length === 4) {
             console.log('[0] Menerima request PUT /api/spareparts/:id...');
             try {
-                const id = url.split('/')[3];
+                const id = path.split('/')[3];
                 if (!id) {
                     return sendResponse(res, 400, { success: false, message: 'ID produk tidak ditemukan di URL' });
                 }
@@ -165,8 +171,8 @@ const server = http.createServer(async (req, res) => {
         }
         
         // GET /api/spareparts/:id (Get by ID)
-        else if (method === 'GET' && url.split('/').length === 4) {
-            const id = url.split('/')[3];
+        else if (method === 'GET' && path.split('/').length === 4) {
+            const id = path.split('/')[3];
             try {
                 const sparepart = await Sparepart.findById(id);
                 if (!sparepart) {
@@ -180,10 +186,10 @@ const server = http.createServer(async (req, res) => {
     } 
     
     // --- Routing Jasa (Services)
-    else if (url.startsWith('/api/services')) {
+    else if (path.startsWith('/api/services')) {
         
         // GET /api/services (Get All)
-        if (url === '/api/services' && method === 'GET') {
+        if (path === '/api/services' && method === 'GET') {
             try {
                 const services = await Service.find({});
                 sendResponse(res, 200, { success: true, count: services.length, data: services });
@@ -193,7 +199,7 @@ const server = http.createServer(async (req, res) => {
             }
         } 
         // POST /api/services (Create)
-        else if (url === '/api/services' && method === 'POST') {
+        else if (path === '/api/services' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
                 const newService = await Service.create(body);
@@ -204,8 +210,8 @@ const server = http.createServer(async (req, res) => {
             }
         }
         // GET /api/services/:id (Get by ID)
-        else if (method === 'GET' && url.split('/').length === 4) {
-            const id = url.split('/')[3];
+        else if (method === 'GET' && path.split('/').length === 4) {
+            const id = path.split('/')[3];
             try {
                 const service = await Service.findById(id);
                 if (!service) {
@@ -219,7 +225,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- UPLOAD GAMBAR ---
-    else if (url === '/api/upload' && method === 'POST') {
+    else if (path === '/api/upload' && method === 'POST') {
         
         if (!req.headers['content-type'] || !req.headers['content-type'].startsWith('multipart/form-data')) {
             return sendResponse(res, 400, { success: false, message: 'Content-Type harus multipart/form-data' });
@@ -268,7 +274,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- RUTE KIRIM OTP ---
-    else if (url === '/api/send-otp' && method === 'POST') {
+    else if (path === '/api/send-otp' && method === 'POST') {
         console.log('[0] Menerima request POST /api/send-otp...');
         try {
             const { email } = await getRequestBody(req);
@@ -297,8 +303,8 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // --- RUTE REGISTRASI PENGGUNA (DENGAN PERBAIKAN WAKTU OTP 5 MENIT) ---
-    else if (url === '/api/register' && method === 'POST') {
+    // --- RUTE REGISTRASI PENGGUNA ---
+    else if (path === '/api/register' && method === 'POST') {
         
         console.log('[0] Menerima request POST /api/register...'); 
         
@@ -310,7 +316,7 @@ const server = http.createServer(async (req, res) => {
                 return sendResponse(res, 400, { success: false, message: 'Semua field (termasuk OTP) wajib diisi' });
             }
 
-            const fiveMinutesAgo = new Date(Date.now() - 300 * 1000); // 300 detik
+            const fiveMinutesAgo = new Date(Date.now() - 300 * 1000); 
             const validOtp = await Otp.findOne({
                 email: email,
                 otp: otp,
@@ -353,7 +359,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- RUTE LOGIN ---
-    else if (url === '/api/login' && method === 'POST') {
+    else if (path === '/api/login' && method === 'POST') {
         console.log('[0] Menerima request POST /api/login...');
         try {
             const body = await getRequestBody(req);
@@ -395,22 +401,154 @@ const server = http.createServer(async (req, res) => {
         }
     }
     
-    // --- BARU: RUTE GET ALL USERS ---
-    else if (url === '/api/users' && method === 'GET') {
+    // --- RUTE GET ALL USERS ---
+    else if (path === '/api/users' && method === 'GET') {
         console.log('[0] Menerima request GET /api/users...');
         try {
-            // Ambil semua user, tapi HAPUS field 'password' demi keamanan
             const users = await User.find({}).select('-password');
-            
             console.log(`[0] Berhasil! Ditemukan ${users.length} pengguna.`);
             sendResponse(res, 200, { success: true, count: users.length, data: users });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di /api/users:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat mengambil data pengguna' });
         }
     }
-    // --- AKHIR BLOK BARU ---
+
+    // --- RUTE KERANJANG (GET) ---
+    else if (path === '/api/cart' && method === 'GET') {
+        console.log('[0] Menerima request GET /api/cart...');
+        try {
+            const userId = parsedUrl.searchParams.get('userId');
+            if (!userId) {
+                return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
+            }
+
+            const cart = await Cart.findOne({ user: userId });
+
+            if (!cart) {
+                console.log(`[0] Tidak ada keranjang ditemukan untuk user ${userId}.`);
+                return sendResponse(res, 200, { success: true, data: { items: [] } });
+            }
+
+            console.log(`[0] Keranjang ditemukan untuk user ${userId}, mengirim ${cart.items.length} item.`);
+            sendResponse(res, 200, { success: true, data: cart });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di GET /api/cart:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat mengambil keranjang' });
+        }
+    }
+
+    // --- RUTE KERANJANG (TAMBAH ITEM) ---
+    else if (path === '/api/cart/add' && method === 'POST') {
+        console.log('[0] Menerima request POST /api/cart/add...');
+        try {
+            const body = await getRequestBody(req);
+            const { userId, productId, name, price, image, itemType, quantity = 1 } = body;
+
+            if (!userId || !productId || !name || !price || !image || !itemType) {
+                return sendResponse(res, 400, { success: false, message: 'Data item tidak lengkap' });
+            }
+
+            let cart = await Cart.findOne({ user: userId });
+            if (!cart) {
+                cart = await Cart.create({ user: userId, items: [] });
+            }
+
+            const existingItem = cart.items.find(item => item.productId === productId);
+
+            if (existingItem) {
+                existingItem.quantity += quantity;
+            } else {
+                cart.items.push({ 
+                    productId, 
+                    nama: name, 
+                    harga: price, 
+                    image, 
+                    itemType, 
+                    quantity 
+                });
+            }
+
+            await cart.save(); 
+            console.log(`[0] Item ${name} ditambahkan ke keranjang user ${userId}`);
+            sendResponse(res, 200, { success: true, message: 'Item ditambahkan ke keranjang', data: cart });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di POST /api/cart/add:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat menambah item' });
+        }
+    }
+
+    // --- RUTE KERANJANG (UPDATE QTY) ---
+    else if (path === '/api/cart/update' && method === 'PUT') {
+        console.log('[0] Menerima request PUT /api/cart/update...');
+        try {
+            const body = await getRequestBody(req);
+            const { userId, cartItemId, quantity } = body; 
+
+            if (!userId || !cartItemId || quantity === undefined) {
+                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
+            }
+            
+            if (quantity < 1) {
+                return sendResponse(res, 400, { success: false, message: 'Quantity tidak boleh kurang dari 1' });
+            }
+
+            const cart = await Cart.findOne({ user: userId });
+            if (!cart) {
+                return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
+            }
+
+            const itemToUpdate = cart.items.id(cartItemId);
+            if (!itemToUpdate) {
+                return sendResponse(res, 404, { success: false, message: 'Item tidak ditemukan di keranjang' });
+            }
+
+            itemToUpdate.quantity = quantity;
+            await cart.save();
+            
+            console.log(`[0] Quantity item ${cartItemId} diupdate menjadi ${quantity}`);
+            sendResponse(res, 200, { success: true, message: 'Quantity diperbarui', data: cart });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di PUT /api/cart/update:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat update quantity' });
+        }
+    }
+
+    // --- PERBAIKAN: RUTE KERANJANG (HAPUS ITEM) ---
+    else if (path === '/api/cart/remove' && method === 'POST') {
+        console.log('[0] Menerima request POST /api/cart/remove...');
+        try {
+            const body = await getRequestBody(req);
+            const { userId, cartItemId } = body;
+
+            if (!userId || !cartItemId) {
+                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
+            }
+
+            // Ganti metode .id().remove() yang lama
+            // dengan $pull yang atomik dan modern
+            const updatedCart = await Cart.findOneAndUpdate(
+                { user: userId },
+                { $pull: { items: { _id: cartItemId } } },
+                { new: true } // Kembalikan dokumen yang sudah diperbarui
+            );
+
+            if (!updatedCart) {
+                return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
+            }
+            
+            console.log(`[0] Item ${cartItemId} dihapus dari keranjang`);
+            sendResponse(res, 200, { success: true, message: 'Item dihapus', data: updatedCart });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di POST /api/cart/remove:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat menghapus item' });
+        }
+    }
+    // --- AKHIR BLOK PERBAIKAN ---
 
     else {
         sendResponse(res, 404, { success: false, message: 'Endpoint Not Found' });
@@ -421,7 +559,6 @@ const server = http.createServer(async (req, res) => {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`🚀 Server running for Ponti Jaya Motor on http://localhost:${PORT}`);
-        // Endpoint baru ditambahkan di log
-        console.log(`Endpoints: /api/spareparts, /api/services, /api/upload, /api/register, /api/send-otp, /api/login, /api/users`);
+        console.log(`Endpoints: ... /api/cart, /api/cart/add, /api/cart/update, /api/cart/remove`);
     });
 });
