@@ -3,51 +3,74 @@
 
 // Import hooks dan komponen
 import { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form, Image, Modal, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, Image, Modal, Alert, Spinner } from 'react-bootstrap';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Truck } from 'lucide-react'; // Untuk ikon COD
 
-// Tipe data item keranjang
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
+// --- PERBAIKAN 1: Buat Interface lebih fleksibel ---
+interface CheckoutItem {
+  _id: string; 
+  productId: string; 
+  name?: string;  // Bisa jadi 'name' (dari Beli Langsung)
+  nama?: string;  // Atau 'nama' (dari Keranjang)
+  harga: number; 
   image: string;
   quantity: number;
 }
 
-// === DATA DUMMY (STATIS) ===
-// Kita gunakan data yang sama persis seperti di keranjang
-const initialCartItems: CartItem[] = [
-  { id: '1', name: 'Kampas rem', price: 50000, image: '/images/produk/kampas rem.jpg', quantity: 1 },
-  { id: '2', name: 'Jasa ganti oli + konsultasi', price: 60000, image: '/images/jasa/servis-rutin.jpg', quantity: 1 },
-  { id: '3', name: 'Klahar roda', price: 10000, image: '/images/produk/klahar roda.jpg', quantity: 2 },
-];
-// =============================
-
 export default function PembayaranPage() {
   const router = useRouter();
   
-  // State Data (Dummy)
-  const [cartItems] = useState(initialCartItems);
-  
-  // State Alamat & Modal
+  const [items, setItems] = useState<CheckoutItem[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false); 
+
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [address, setAddress] = useState("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat, 11730");
+  const [address, setAddress] = useState("Memuat alamat...");
   const [tempAddress, setTempAddress] = useState(address);
 
-  // State Metode Pembayaran
-  const [paymentMethod, setPaymentMethod] = useState(''); // 'qris' or 'bank'
-  const [error, setError] = useState(''); // Error jika belum pilih metode bayar
+  const [paymentMethod, setPaymentMethod] = useState(''); // 'qris' or 'cod'
+  const [error, setError] = useState(''); 
 
-  // Cek login saat halaman dimuat
+  // ... (useEffect untuk ambil data SAMA, tidak berubah) ...
   useEffect(() => {
-    if (localStorage.getItem("isUserLoggedIn") !== "true") {
-      router.push('/login'); // Paksa login jika belum
+    const userInfoString = localStorage.getItem("userInfo");
+    if (!userInfoString) {
+      router.push('/login'); 
+      return;
     }
+    const userInfo = JSON.parse(userInfoString);
+    setUserId(userInfo.userId);
+
+    const storedAddress = localStorage.getItem("shippingAddress");
+    if (storedAddress) {
+      setAddress(storedAddress);
+    } else {
+      setAddress("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat, 11730");
+    }
+
+    const itemsString = localStorage.getItem("checkoutItems");
+    if (!itemsString) {
+      alert("Tidak ada item untuk di-checkout.");
+      router.push('/keranjang');
+      return;
+    }
+    
+    const checkoutItems: CheckoutItem[] = JSON.parse(itemsString);
+    if (checkoutItems.length === 0) {
+      alert("Tidak ada item untuk di-checkout.");
+      router.push('/keranjang');
+      return;
+    }
+
+    setItems(checkoutItems);
+    setLoading(false);
+
   }, [router]);
 
-  // === HANDLERS ALAMAT ===
+  // ... (Handlers Alamat SAMA, tidak berubah) ...
   const handleOpenAddressModal = () => {
     setTempAddress(address);
     setShowAddressModal(true);
@@ -57,34 +80,114 @@ export default function PembayaranPage() {
     setShowAddressModal(false);
   };
 
-  // === KALKULASI TOTAL ===
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const shippingCost = 15000; // Biaya ongkir (dummy)
+  // ... (Fungsi +/-/Hapus SAMA, tidak berubah) ...
+  const handleUpdateQuantity = (productId: string, newQuantity: number) => {
+    if (newQuantity < 1) newQuantity = 1; 
+    setItems(currentItems =>
+      currentItems.map(item =>
+        item.productId === productId ? { ...item, quantity: newQuantity } : item
+      )
+    );
+  };
+  const handleRemoveItem = (productId: string) => {
+    setItems(currentItems =>
+      currentItems.filter(item => item.productId !== productId)
+    );
+  };
+
+  // ... (Kalkulasi Total SAMA, tidak berubah) ...
+  const subtotal = items.reduce((acc, item) => acc + (item.harga * item.quantity), 0);
+  const shippingCost = 15000;
   const grandTotal = subtotal + shippingCost;
 
-  // === HANDLER TOMBOL BAYAR ===
-  const handleBayar = () => {
+  // === FUNGSI UTAMA: TOMBOL BAYAR ===
+  const handleBayar = async () => {
     if (!paymentMethod) {
       setError("Harap pilih metode pembayaran terlebih dahulu.");
-    } else {
-      setError("");
-      // Di sini Anda akan melanjutkan ke proses pembayaran
-      alert(`Siap membayar Rp${grandTotal} via ${paymentMethod.toUpperCase()}!`);
+      return;
+    }
+    if (items.length === 0) {
+      setError("Tidak ada item di checkout Anda.");
+      return;
+    }
+    if (!userId) {
+      setError("Sesi Anda berakhir. Harap login kembali.");
+      return;
+    }
+
+    setError("");
+    setIsPlacingOrder(true);
+
+    const orderStatus = paymentMethod === 'COD' ? 'Diproses' : 'Menunggu Pembayaran';
+
+    // --- PERBAIKAN 2: Logika Mapping Data ---
+    // Pastikan kita mengirim 'nama' (bukan 'name') ke backend
+    const orderData = {
+      userId: userId,
+      items: items.map(item => ({
+        productId: item.productId,
+        // Cek 'item.nama' (dari keranjang) ATAU 'item.name' (dari beli langsung)
+        nama: item.nama || item.name, 
+        harga: item.harga,
+        image: item.image,
+        quantity: item.quantity
+      })),
+      shippingAddress: address,
+      paymentMethod: paymentMethod.toUpperCase(), // 'COD' or 'QRIS'
+      totalAmount: grandTotal,
+      status: orderStatus
+    };
+    // --- AKHIR PERBAIKAN 2 ---
+
+    try {
+      const response = await fetch('http://localhost:5000/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        // Tampilkan pesan error dari server
+        throw new Error(data.message || 'Gagal membuat pesanan');
+      }
+
+      localStorage.removeItem("checkoutItems");
+      localStorage.setItem("showSuccessNotification", "Pesanan Sudah Berhasil Dibuat");
+
+      if (paymentMethod === 'COD') {
+        router.push('/pembelian');
+      } else {
+        router.push(`/pembayaran/qris?orderId=${data.data._id}&total=${grandTotal}`);
+      }
+
+    } catch (err: any) {
+      setError(err.message); // Tampilkan pesan error di Alert
+      setIsPlacingOrder(false);
     }
   };
 
+
+  if (loading) {
+    // ... (Tampilan Loading SAMA) ...
+    return (
+      <div className="w-100 py-5 text-center" style={{ backgroundColor: '#E5E9F0', minHeight: '100vh' }}>
+        <Spinner animation="border" />
+        <p className="mt-2 text-muted">Memuat checkout...</p>
+      </div>
+    );
+  }
+
   return (
-    // Latar belakang abu-abu
     <div className="w-100 py-5" style={{ backgroundColor: '#E5E9F0', minHeight: '100vh' }}>
       <Container>
         <h1 className="fw-bold text-dark mb-4">Checkout Pembayaran</h1>
         
         <Row className="g-custom-20">
           
-          {/* === Kolom Kiri: Detail Pesanan === */}
           <Col lg={8} className="d-flex flex-column gap-4">
             
-            {/* 1. KARTU ALAMAT */}
+            {/* ... (KARTU ALAMAT SAMA) ... */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <div className="d-flex justify-content-between align-items-start mb-2">
@@ -108,14 +211,54 @@ export default function PembayaranPage() {
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Produk Dipesan</h5>
-                {cartItems.map((item) => (
-                  <Row key={item.id} className="g-3 mb-3 align-items-center">
+                
+                {items.length === 0 && (
+                  <Alert variant="warning">
+                    Tidak ada item. 
+                    <Link href="/keranjang" className="alert-link">Kembali ke keranjang</Link>.
+                  </Alert>
+                )}
+                
+                {items.map((item) => (
+                  <Row key={item.productId} className="g-3 mb-3 align-items-center">
                     <Col xs="auto">
-                      <Image src={item.image} alt={item.name} rounded style={{ width: '60px', height: '60px', objectFit: 'cover' }} />
+                      <Image src={item.image} alt={item.nama || item.name} rounded style={{ width: '60px', height: '60px', objectFit: 'cover' }} />
                     </Col>
                     <Col>
-                      <h6 className="mb-1 fw-bold text-dark small">{item.name}</h6>
-                      <p className="text-secondary small mb-0">{item.quantity} x {item.price.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</p>
+                      {/* --- PERBAIKAN 3: Tampilkan nama yang benar --- */}
+                      <h6 className="mb-1 fw-bold text-dark small">{item.nama || item.name}</h6>
+                      <p className="text-secondary small mb-0">{item.quantity} x {item.harga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</p>
+                    </Col>
+                    
+                    {/* ... (Tombol +/-/Hapus SAMA) ... */}
+                    <Col xs="auto" className="d-flex align-items-center justify-content-end">
+                      <Button 
+                        variant="link" 
+                        className="text-danger p-0 me-3"
+                        onClick={() => handleRemoveItem(item.productId)}
+                        disabled={isPlacingOrder}
+                      >
+                        <i className="bi bi-trash fs-5"></i>
+                      </Button>
+                      <div className="d-flex align-items-center">
+                        <Button 
+                          variant="outline-secondary" 
+                          className="btn-quantity"
+                          onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}
+                          disabled={isPlacingOrder}
+                        >
+                          -
+                        </Button>
+                        <span className="quantity-display">{item.quantity}</span>
+                        <Button 
+                          variant="outline-secondary" 
+                          className="btn-quantity"
+                          onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}
+                          disabled={isPlacingOrder}
+                        >
+                          +
+                        </Button>
+                      </div>
                     </Col>
                   </Row>
                 ))}
@@ -127,10 +270,11 @@ export default function PembayaranPage() {
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Metode Pembayaran</h5>
                 
+                {/* Tampilkan pesan error di sini */}
                 {error && <Alert variant="danger" className="py-2 small">{error}</Alert>}
                 
                 <Row>
-                  {/* Pilihan QRIS */}
+                  {/* ... (Pilihan QRIS SAMA) ... */}
                   <Col md={6} className="mb-2">
                     <Card 
                       className={`payment-option p-3 ${paymentMethod === 'qris' ? 'selected' : ''}`}
@@ -138,22 +282,26 @@ export default function PembayaranPage() {
                     >
                       <Form.Check type="radio" id="qris-radio" className="fw-bold">
                         <Form.Check.Input type="radio" checked={paymentMethod === 'qris'} readOnly />
-                        <Form.Check.Label>QRIS</Form.Check.Label>
+                        <Form.Check.Label className="d-flex align-items-center gap-2">
+                          <i className="bi bi-qr-code fs-5"></i> QRIS
+                        </Form.Check.Label>
                         <span className="text-secondary small d-block ms-4">Bayar dengan QR code (Gopay, OVO, ShopeePay, dll)</span>
                       </Form.Check>
                     </Card>
                   </Col>
                   
-                  {/* Pilihan Bank Transfer */}
+                  {/* ... (Pilihan COD SAMA) ... */}
                   <Col md={6} className="mb-2">
                     <Card 
-                      className={`payment-option p-3 ${paymentMethod === 'bank' ? 'selected' : ''}`}
-                      onClick={() => { setPaymentMethod('bank'); setError(''); }}
+                      className={`payment-option p-3 ${paymentMethod === 'cod' ? 'selected' : ''}`}
+                      onClick={() => { setPaymentMethod('cod'); setError(''); }}
                     >
-                      <Form.Check type="radio" id="bank-radio" className="fw-bold">
-                        <Form.Check.Input type="radio" checked={paymentMethod === 'bank'} readOnly />
-                        <Form.Check.Label>Bank Transfer</Form.Check.Label>
-                        <span className="text-secondary small d-block ms-4">Bayar ke Virtual Account (BCA, Mandiri, BRI, dll)</span>
+                      <Form.Check type="radio" id="cod-radio" className="fw-bold">
+                        <Form.Check.Input type="radio" checked={paymentMethod === 'cod'} readOnly />
+                        <Form.Check.Label className="d-flex align-items-center gap-2">
+                          <Truck size={18} /> COD (Bayar di Tempat)
+                        </Form.Check.Label>
+                        <span className="text-secondary small d-block ms-4">Bayar tunai ke kurir saat barang diterima</span>
                       </Form.Check>
                     </Card>
                   </Col>
@@ -163,14 +311,14 @@ export default function PembayaranPage() {
 
           </Col>
 
-          {/* === Kolom Kanan: Ringkasan Belanja === */}
+          {/* ... (Kolom Kanan / Ringkasan Belanja SAMA) ... */}
           <Col lg={4}>
             <Card className="shadow-sm border-0 rounded-3 sticky-top" style={{ top: '100px' }}>
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Ringkasan Belanja</h5>
                 
                 <div className="d-flex justify-content-between mb-2">
-                  <span className="text-secondary small">Subtotal ({cartItems.length} Produk)</span>
+                  <span className="text-secondary small">Subtotal ({items.length} Produk)</span>
                   <span className="fw-bold text-dark small">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</span>
                 </div>
                 <div className="d-flex justify-content-between mb-3">
@@ -187,8 +335,18 @@ export default function PembayaranPage() {
                   </span>
                 </div>
 
-                <Button variant="primary" size="lg" className="w-100 fw-bold mt-2" onClick={handleBayar}>
-                  Bayar Sekarang
+                <Button 
+                  variant="primary" 
+                  size="lg" 
+                  className="w-100 fw-bold mt-2" 
+                  onClick={handleBayar}
+                  disabled={isPlacingOrder || items.length === 0}
+                >
+                  {isPlacingOrder ? (
+                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                  ) : (
+                    'Bayar Sekarang'
+                  )}
                 </Button>
               </Card.Body>
             </Card>
@@ -197,7 +355,7 @@ export default function PembayaranPage() {
         </Row>
       </Container>
 
-      {/* === MODAL UBAH ALAMAT (Sama seperti di Keranjang) === */}
+      {/* ... (Modal Ubah Alamat SAMA) ... */}
       <Modal show={showAddressModal} onHide={() => setShowAddressModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Ubah Alamat Pengiriman</Modal.Title>

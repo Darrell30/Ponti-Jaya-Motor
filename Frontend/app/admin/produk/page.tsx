@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// Tambahkan ikon Trash2 dan AlertTriangle
-import { Edit, Plus, Upload, Package, DollarSign, Archive, FileText, Loader2, Trash2, AlertTriangle } from "lucide-react";
+// 1. Tambahkan Form, InputGroup, Row, Col dari 'react-bootstrap' dan ikon 'Search'
+import { Form, InputGroup, Row, Col } from "react-bootstrap";
+import { Edit, Plus, Upload, Package, DollarSign, Archive, FileText, Loader2, Trash2, AlertTriangle, Search } from "lucide-react";
 
 // --- Tipe data Produk ---
 interface Product {
@@ -41,6 +42,9 @@ export default function ProdukPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // 2. Tambahkan State untuk Search Query
+  const [searchQuery, setSearchQuery] = useState("");
+
   // State Modal Edit & Tambah
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<ProductFormState>(newProductInitialState);
@@ -91,6 +95,7 @@ export default function ProdukPage() {
     setIsDeleting(true);
     try {
       // Panggil API Delete di Backend
+      // (Ini sekarang akan memanggil rute baru Anda yang juga menghapus dari Cloudinary)
       const response = await fetch(`http://localhost:5000/api/spareparts/${productToDelete._id}`, {
         method: 'DELETE',
       });
@@ -105,8 +110,6 @@ export default function ProdukPage() {
       setProducts(prev => prev.filter(p => p._id !== productToDelete._id));
       
       handleCloseDeleteModal();
-      // Opsional: Tampilkan notifikasi sukses kecil (toast) di sini
-
     } catch (error: any) {
       alert("Error: " + error.message);
     } finally {
@@ -115,7 +118,7 @@ export default function ProdukPage() {
   };
   // ---------------------------
 
-  // --- Logika Modal Edit ---
+  // --- Logika Modal Edit (Tidak Berubah) ---
   const handleOpenEditModal = (product: Product) => {
     setEditFormData({
       _id: product._id,
@@ -204,7 +207,7 @@ export default function ProdukPage() {
     }
   };
   
-  // --- Logika Modal Tambah ---
+  // --- Logika Modal Tambah (Tidak Berubah) ---
   const handleOpenAddModal = () => {
     setNewFormData(newProductInitialState); 
     setModalError(null);
@@ -282,14 +285,40 @@ export default function ProdukPage() {
     }
   };
 
+  // 3. Logika untuk memfilter produk berdasarkan search query
+  const filteredProducts = products.filter(product =>
+    product.nama.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5 className="fw-bold text-dark mb-0">Daftar Produk</h5>
-        <button onClick={handleOpenAddModal} className="btn btn-success btn-sm d-flex align-items-center gap-2 rounded-3 fw-bold px-3">
-          <Plus size={16} /> Tambah Produk
-        </button>
-      </div>
+      {/* 4. Modifikasi Header dengan Search Bar */}
+      <Row className="mb-4 g-3 align-items-center">
+        <Col md={4}>
+          <h5 className="fw-bold text-dark mb-0">Daftar Produk</h5>
+        </Col>
+        
+        <Col md={5}>
+          <InputGroup className="shadow-sm">
+            <InputGroup.Text className="bg-white border-0">
+              <Search size={16} className="text-muted" />
+            </InputGroup.Text>
+            <Form.Control
+              type="text"
+              placeholder="Cari produk berdasarkan nama..."
+              className="border-0 shadow-none"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </InputGroup>
+        </Col>
+
+        <Col md={3} className="text-md-end">
+          <button onClick={handleOpenAddModal} className="btn btn-success btn-sm d-flex align-items-center gap-2 rounded-3 fw-bold px-3 w-100 w-md-auto justify-content-center">
+            <Plus size={16} /> Tambah Produk
+          </button>
+        </Col>
+      </Row>
       
       {loading && (
         <div className="text-center py-5">
@@ -299,8 +328,9 @@ export default function ProdukPage() {
       )}
       {error && <div className="alert alert-danger"><strong>Error:</strong> {error}</div>}
 
+      {/* 5. Gunakan `filteredProducts` untuk me-render daftar */}
       <div className="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-4">
-        {!loading && !error && products.map((product) => (
+        {!loading && !error && filteredProducts.map((product) => (
           <div className="col" key={product._id}>
             <div className="card h-100 border-0 shadow-sm rounded-4 p-3">
               <div className="bg-light rounded-3 mb-3 d-flex align-items-center justify-content-center overflow-hidden" style={{ height: '180px' }}>
@@ -308,8 +338,6 @@ export default function ProdukPage() {
               </div>
               <div className="text-center">
                 <h6 className="fw-bold text-dark mb-3 text-truncate">{product.nama}</h6>
-                
-                {/* UPDATE TAMPILAN TOMBOL: Gabungkan Edit dan Hapus */}
                 <div className="d-flex gap-2">
                   <button 
                     onClick={() => handleOpenEditModal(product)}
@@ -318,8 +346,6 @@ export default function ProdukPage() {
                   >
                     <Edit size={16} /> Ubah
                   </button>
-                  
-                  {/* Tombol Hapus Baru */}
                   <button 
                     onClick={() => handleOpenDeleteModal(product)}
                     className="btn btn-danger d-flex align-items-center justify-content-center py-2 rounded-3 px-3"
@@ -328,14 +354,21 @@ export default function ProdukPage() {
                     <Trash2 size={16} />
                   </button>
                 </div>
-
               </div>
             </div>
           </div>
         ))}
+        
+        {/* 6. Tampilkan pesan jika hasil filter kosong */}
+        {!loading && !error && filteredProducts.length === 0 && (
+          <Col xs={12} className="text-center py-5">
+            <h5 className="text-muted fw-bold">Produk Tidak Ditemukan</h5>
+            <p className="text-muted">Tidak ada produk yang cocok dengan kata kunci "{searchQuery}".</p>
+          </Col>
+        )}
       </div>
 
-      {/* --- MODAL EDIT --- */}
+      {/* --- MODAL EDIT (Tidak Berubah) --- */}
       {showEditModal && (
         <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }} onClick={handleCloseEditModal}>
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ width: '100%', maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
@@ -388,7 +421,7 @@ export default function ProdukPage() {
         </div>
       )}
     
-      {/* --- MODAL TAMBAH --- */}
+      {/* --- MODAL TAMBAH (Tidak Berubah) --- */}
       {showAddModal && (
         <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }} onClick={handleCloseAddModal}>
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ width: '100%', maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
@@ -444,7 +477,7 @@ export default function ProdukPage() {
         </div>
       )}
 
-      {/* --- MODAL KONFIRMASI HAPUS --- */}
+      {/* --- MODAL KONFIRMASI HAPUS (Tidak Berubah) --- */}
       {showDeleteModal && productToDelete && (
         <div 
           className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" 
