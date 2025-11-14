@@ -2,9 +2,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Edit, Plus, Upload, Package, DollarSign, Archive, FileText, Loader2 } from "lucide-react";
+// Tambahkan ikon Trash2 dan AlertTriangle
+import { Edit, Plus, Upload, Package, DollarSign, Archive, FileText, Loader2, Trash2, AlertTriangle } from "lucide-react";
 
-// --- Tipe data Produk (Sesuai Skema MongoDB - Data Masuk) ---
+// --- Tipe data Produk ---
 interface Product {
   _id: string;
   nama: string;
@@ -14,6 +15,7 @@ interface Product {
   imageUrl: string; 
 };
 
+// --- Tipe data untuk Form ---
 type ProductFormState = {
   _id: string | null;
   nama: string;
@@ -24,11 +26,10 @@ type ProductFormState = {
   imageFile?: File | null;
 };
 
-
 const newProductInitialState: ProductFormState = {
   _id: null,
   nama: '',
-  harga: '', // Default string kosong
+  harga: '',
   stok: 0,
   deskripsi: '',
   imageUrl: '', 
@@ -40,16 +41,20 @@ export default function ProdukPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // State Modal Edit & Tambah
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<ProductFormState>(newProductInitialState);
-  
   const [showAddModal, setShowAddModal] = useState(false);
   const [newFormData, setNewFormData] = useState<ProductFormState>(newProductInitialState);
+
+  // --- STATE BARU: Modal Hapus ---
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Loading saat menghapus
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  // --- Logika Fetch Data ---
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -58,13 +63,10 @@ export default function ProdukPage() {
     setLoading(true);
     try {
       const response = await fetch('http://localhost:5000/api/spareparts');
-      if (!response.ok) throw new Error('Gagal mengambil data dari server');
+      if (!response.ok) throw new Error('Gagal mengambil data');
       const data = await response.json();
-      if (data.success) {
-        setProducts(data.data);
-      } else {
-        throw new Error(data.message || 'Gagal memuat data');
-      }
+      if (data.success) setProducts(data.data);
+      else throw new Error(data.message);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -72,12 +74,53 @@ export default function ProdukPage() {
     }
   };
 
+  // --- LOGIKA HAPUS PRODUK ---
+  const handleOpenDeleteModal = (product: Product) => {
+    setProductToDelete(product);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setProductToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      // Panggil API Delete di Backend
+      const response = await fetch(`http://localhost:5000/api/spareparts/${productToDelete._id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Gagal menghapus produk");
+      }
+
+      // Sukses: Hapus dari state lokal agar hilang dari layar
+      setProducts(prev => prev.filter(p => p._id !== productToDelete._id));
+      
+      handleCloseDeleteModal();
+      // Opsional: Tampilkan notifikasi sukses kecil (toast) di sini
+
+    } catch (error: any) {
+      alert("Error: " + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  // ---------------------------
+
   // --- Logika Modal Edit ---
   const handleOpenEditModal = (product: Product) => {
     setEditFormData({
       _id: product._id,
       nama: product.nama,
-      harga: String(product.harga), 
+      harga: String(product.harga),
       stok: product.stok,
       deskripsi: product.deskripsi,
       imageUrl: product.imageUrl,
@@ -88,20 +131,16 @@ export default function ProdukPage() {
   };
   const handleCloseEditModal = () => setShowEditModal(false);
 
- 
   const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-
     if (name === 'harga') {
-      // Hanya angka, hapus 0 di depan
       const cleanValue = value.replace(/\D/g, '');
       const formattedValue = cleanValue.replace(/^0+(?=\d)/, '');
       setEditFormData(prev => ({ ...prev, [name]: formattedValue }));
-    } 
-    else if (name === 'stok') {
-      setEditFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
-    } 
-    else {
+    } else if (name === 'stok') {
+      const stokValue = parseInt(value) || 0;
+      setEditFormData(prev => ({ ...prev, [name]: Math.max(0, stokValue) }));
+    } else {
       setEditFormData(prev => ({ ...prev, [name]: value }));
     }
   };
@@ -120,14 +159,11 @@ export default function ProdukPage() {
   const handleSimpanPerubahan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editFormData._id) return;
-
     setIsSubmitting(true);
     setModalError(null);
 
     try {
       let finalImageUrl = editFormData.imageUrl;
-
-      // Upload gambar jika ada baru
       if (editFormData.imageFile) {
         const imageFormData = new FormData();
         imageFormData.append('file', editFormData.imageFile);
@@ -142,7 +178,7 @@ export default function ProdukPage() {
 
       const productData = {
         nama: editFormData.nama,
-        harga: parseInt(editFormData.harga) || 0, // Konversi balik
+        harga: parseInt(editFormData.harga) || 0,
         stok: editFormData.stok,
         deskripsi: editFormData.deskripsi,
         imageUrl: finalImageUrl,
@@ -161,7 +197,6 @@ export default function ProdukPage() {
         product._id === updateData.data._id ? updateData.data : product
       ));
       handleCloseEditModal();
-
     } catch (err: any) {
       setModalError(err.message);
     } finally {
@@ -169,7 +204,7 @@ export default function ProdukPage() {
     }
   };
   
-  
+  // --- Logika Modal Tambah ---
   const handleOpenAddModal = () => {
     setNewFormData(newProductInitialState); 
     setModalError(null);
@@ -179,16 +214,14 @@ export default function ProdukPage() {
 
   const handleNewInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-
     if (name === 'harga') {
       const cleanValue = value.replace(/\D/g, '');
       const formattedValue = cleanValue.replace(/^0+(?=\d)/, '');
       setNewFormData(prev => ({ ...prev, [name]: formattedValue }));
-    } 
-    else if (name === 'stok') {
-      setNewFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
-    } 
-    else {
+    } else if (name === 'stok') {
+      const stokValue = parseInt(value) || 0;
+      setNewFormData(prev => ({ ...prev, [name]: Math.max(0, stokValue) }));
+    } else {
       setNewFormData(prev => ({ ...prev, [name]: value }));
     }
   };
@@ -210,14 +243,12 @@ export default function ProdukPage() {
       setModalError("Harap upload gambar produk.");
       return;
     }
-
     setIsSubmitting(true);
     setModalError(null);
 
     try {
       const imageFormData = new FormData();
       imageFormData.append('file', newFormData.imageFile); 
-
       const uploadResponse = await fetch('http://localhost:5000/api/upload', {
         method: 'POST',
         body: imageFormData, 
@@ -227,7 +258,7 @@ export default function ProdukPage() {
 
       const productData = {
         nama: newFormData.nama,
-        harga: parseInt(newFormData.harga) || 0, // Konversi balik
+        harga: parseInt(newFormData.harga) || 0,
         stok: newFormData.stok,
         deskripsi: newFormData.deskripsi,
         imageUrl: uploadData.url,
@@ -244,7 +275,6 @@ export default function ProdukPage() {
 
       setProducts(prevProducts => [createData.data, ...prevProducts]);
       handleCloseAddModal();
-
     } catch (err: any) {
       setModalError(err.message);
     } finally {
@@ -254,29 +284,21 @@ export default function ProdukPage() {
 
   return (
     <>
-      {/* Header Halaman */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h5 className="fw-bold text-dark mb-0">Daftar Produk</h5>
-        <button 
-          onClick={handleOpenAddModal}
-          className="btn btn-success btn-sm d-flex align-items-center gap-2 rounded-3 fw-bold px-3"
-        >
+        <button onClick={handleOpenAddModal} className="btn btn-success btn-sm d-flex align-items-center gap-2 rounded-3 fw-bold px-3">
           <Plus size={16} /> Tambah Produk
         </button>
       </div>
       
-      {/* Loading / Error */}
       {loading && (
         <div className="text-center py-5">
           <Loader2 size={32} className="animate-spin text-primary" />
           <p className="mt-2 text-muted">Memuat produk...</p>
         </div>
       )}
-      {error && (
-        <div className="alert alert-danger"><strong>Error:</strong> {error}</div>
-      )}
+      {error && <div className="alert alert-danger"><strong>Error:</strong> {error}</div>}
 
-      {/* Grid Produk */}
       <div className="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-4">
         {!loading && !error && products.map((product) => (
           <div className="col" key={product._id}>
@@ -285,44 +307,49 @@ export default function ProdukPage() {
                  <img src={product.imageUrl} alt={product.nama} className="w-100 h-100 object-fit-cover" />
               </div>
               <div className="text-center">
-                <h6 className="fw-bold text-dark mb-3">{product.nama}</h6>
-                <button 
-                  onClick={() => handleOpenEditModal(product)}
-                  className="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2 fw-bold py-2 rounded-3" 
-                  style={{backgroundColor: '#0d6efd'}}
-                >
-                  <Edit size={16} /> Ubah
-                </button>
+                <h6 className="fw-bold text-dark mb-3 text-truncate">{product.nama}</h6>
+                
+                {/* UPDATE TAMPILAN TOMBOL: Gabungkan Edit dan Hapus */}
+                <div className="d-flex gap-2">
+                  <button 
+                    onClick={() => handleOpenEditModal(product)}
+                    className="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2 fw-bold py-2 rounded-3" 
+                    style={{backgroundColor: '#0d6efd'}}
+                  >
+                    <Edit size={16} /> Ubah
+                  </button>
+                  
+                  {/* Tombol Hapus Baru */}
+                  <button 
+                    onClick={() => handleOpenDeleteModal(product)}
+                    className="btn btn-danger d-flex align-items-center justify-content-center py-2 rounded-3 px-3"
+                    title="Hapus Produk"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
               </div>
             </div>
           </div>
         ))}
       </div>
 
+      {/* --- MODAL EDIT --- */}
       {showEditModal && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" 
-          style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }}
-          onClick={handleCloseEditModal}
-        >
+        <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }} onClick={handleCloseEditModal}>
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ width: '100%', maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
             <div className="card-header bg-light border-0 p-4 d-flex justify-content-between align-items-center">
               <h5 className="fw-bold mb-0 text-dark">Ubah Detail Produk</h5>
               <button onClick={handleCloseEditModal} className="btn-close" disabled={isSubmitting}></button>
             </div>
-            
             <form onSubmit={handleSimpanPerubahan}>
               <div className="card-body p-4" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                 {modalError && <div className="alert alert-danger small py-2">{modalError}</div>}
-                
                 <div className="row g-3">
                   <div className="col-md-5">
                     <label className="form-label small fw-bold text-muted">Gambar Produk</label>
-                    <div 
-                      className="bg-light rounded-3 d-flex align-items-center justify-content-center position-relative overflow-hidden mb-2" 
-                      style={{ height: '180px', cursor: 'pointer' }}
-                      onClick={() => !isSubmitting && document.getElementById('imageUploadEdit')?.click()}
-                    >
+                    <div className="bg-light rounded-3 d-flex align-items-center justify-content-center position-relative overflow-hidden mb-2" style={{ height: '180px', cursor: 'pointer' }} onClick={() => !isSubmitting && document.getElementById('imageUploadEdit')?.click()}>
                       <img src={editFormData.imageUrl} alt="Preview" className="w-100 h-100 object-fit-cover" />
                       <div className="position-absolute text-white bg-dark bg-opacity-50 p-2 rounded-3"><Upload size={20} /></div>
                     </div>
@@ -336,16 +363,11 @@ export default function ProdukPage() {
                     <div className="row g-3">
                       <div className="col-sm-6 mb-3">
                         <label className="form-label small fw-bold text-muted"><DollarSign size={14} /> Harga</label>
-                        <input 
-                          type="text" inputMode="numeric" 
-                          className="form-control" name="harga" 
-                          value={editFormData.harga} onChange={handleEditInputChange} 
-                          required disabled={isSubmitting} 
-                        />
+                        <input type="text" inputMode="numeric" className="form-control" name="harga" value={editFormData.harga} onChange={handleEditInputChange} required disabled={isSubmitting} />
                       </div>
                       <div className="col-sm-6 mb-3">
                         <label className="form-label small fw-bold text-muted"><Archive size={14} /> Stok</label>
-                        <input type="number" className="form-control" name="stok" value={editFormData.stok} onChange={handleEditInputChange} required disabled={isSubmitting} />
+                        <input type="number" min="0" className="form-control" name="stok" value={editFormData.stok} onChange={handleEditInputChange} required disabled={isSubmitting} />
                       </div>
                     </div>
                   </div>
@@ -366,30 +388,21 @@ export default function ProdukPage() {
         </div>
       )}
     
+      {/* --- MODAL TAMBAH --- */}
       {showAddModal && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" 
-          style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }}
-          onClick={handleCloseAddModal}
-        >
+        <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }} onClick={handleCloseAddModal}>
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ width: '100%', maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
             <div className="card-header bg-light border-0 p-4 d-flex justify-content-between align-items-center">
               <h5 className="fw-bold mb-0 text-dark">Tambah Produk Baru</h5>
               <button onClick={handleCloseAddModal} className="btn-close" disabled={isSubmitting}></button>
             </div>
-            
             <form onSubmit={handleSimpanProdukBaru}>
               <div className="card-body p-4" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                 {modalError && <div className="alert alert-danger small py-2">{modalError}</div>}
-                
                 <div className="row g-3">
                   <div className="col-md-5">
                     <label className="form-label small fw-bold text-muted">Gambar Produk (Wajib)</label>
-                    <div 
-                      className="bg-light rounded-3 d-flex align-items-center justify-content-center position-relative overflow-hidden mb-2 border" 
-                      style={{ height: '180px', cursor: 'pointer' }}
-                      onClick={() => !isSubmitting && document.getElementById('imageUploadAdd')?.click()}
-                    >
+                    <div className="bg-light rounded-3 d-flex align-items-center justify-content-center position-relative overflow-hidden mb-2 border" style={{ height: '180px', cursor: 'pointer' }} onClick={() => !isSubmitting && document.getElementById('imageUploadAdd')?.click()}>
                       {newFormData.imageUrl ? (
                         <img src={newFormData.imageUrl} alt="Preview" className="w-100 h-100 object-fit-cover" />
                       ) : (
@@ -406,17 +419,11 @@ export default function ProdukPage() {
                     <div className="row g-3">
                       <div className="col-sm-6 mb-3">
                         <label className="form-label small fw-bold text-muted"><DollarSign size={14} /> Harga</label>
-                      
-                        <input 
-                          type="text" inputMode="numeric" 
-                          className="form-control" name="harga" 
-                          value={newFormData.harga} onChange={handleNewInputChange} 
-                          placeholder="50000" required disabled={isSubmitting} 
-                        />
+                        <input type="text" inputMode="numeric" className="form-control" name="harga" value={newFormData.harga} onChange={handleNewInputChange} placeholder="50000" required disabled={isSubmitting} />
                       </div>
                       <div className="col-sm-6 mb-3">
                         <label className="form-label small fw-bold text-muted"><Archive size={14} /> Stok</label>
-                        <input type="number" className="form-control" name="stok" value={newFormData.stok} onChange={handleNewInputChange} placeholder="10" required disabled={isSubmitting} />
+                        <input type="number" min="0" className="form-control" name="stok" value={newFormData.stok} onChange={handleNewInputChange} placeholder="10" required disabled={isSubmitting} />
                       </div>
                     </div>
                   </div>
@@ -433,6 +440,47 @@ export default function ProdukPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL KONFIRMASI HAPUS --- */}
+      {showDeleteModal && productToDelete && (
+        <div 
+          className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" 
+          style={{ zIndex: 9999, backdropFilter: 'blur(5px)' }}
+        >
+          <div className="card border-0 shadow-lg rounded-4 overflow-hidden animate-pop-in" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="card-body p-4 text-center">
+              <div className="mb-3 text-danger">
+                <AlertTriangle size={48} />
+              </div>
+              <h5 className="fw-bold text-dark mb-2">Hapus Produk?</h5>
+              <p className="text-muted mb-4">
+                Apakah Anda yakin ingin menghapus <strong>"{productToDelete.nama}"</strong>? Tindakan ini tidak dapat dibatalkan.
+              </p>
+              
+              <div className="d-flex gap-2 justify-content-center">
+                <button 
+                  onClick={handleCloseDeleteModal} 
+                  className="btn btn-light fw-bold rounded-pill px-4 flex-fill"
+                  disabled={isDeleting}
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleConfirmDelete} 
+                  className="btn btn-danger fw-bold rounded-pill px-4 flex-fill"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin me-2" /> Menghapus...
+                    </>
+                  ) : "Ya, Hapus"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

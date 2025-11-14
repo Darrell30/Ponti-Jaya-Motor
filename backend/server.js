@@ -16,7 +16,6 @@ const User = require('./models/User');
 const Otp = require('./models/Otp'); 
 const Cart = require('./models/Cart'); 
 
-// ... (Konfigurasi, Koneksi DB, Fungsi Utilitas - tidak berubah) ...
 // Variabel Lingkungan
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI; 
@@ -108,7 +107,32 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // ... (Routing Sparepart, Service, Upload, Auth... tidak berubah) ...
+    // ========================================================================
+    // [PERBAIKAN] JALUR KHUSUS DELETE SPAREPART (DITARUH DI ATAS AGAR TERBACA)
+    // ========================================================================
+    if (method === 'DELETE' && path.startsWith('/api/spareparts/')) {
+        const id = path.split('/')[3];
+        console.log(`[0] Menerima request DELETE (Jalur Khusus) untuk ID: ${id}`);
+        
+        try {
+            // Cari dan hapus
+            const deletedProduct = await Sparepart.findByIdAndDelete(id);
+            
+            if (!deletedProduct) {
+                return sendResponse(res, 404, { success: false, message: 'Produk tidak ditemukan' });
+            }
+
+            console.log(`[0] Produk berhasil dihapus: ${id}`);
+            // PENTING: Return di sini agar tidak lanjut ke kode di bawah
+            return sendResponse(res, 200, { success: true, message: 'Produk berhasil dihapus' });
+        } catch (error) {
+            console.error('[0] ERROR DELETE:', error);
+            return sendResponse(res, 500, { success: false, message: 'Gagal menghapus produk' });
+        }
+    }
+    // ========================================================================
+
+
     //Routing Sparepart 
     if (path.startsWith('/api/spareparts')) {
         
@@ -517,39 +541,37 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // --- PERBAIKAN: RUTE KERANJANG (HAPUS ITEM) ---
-    else if (path === '/api/cart/remove' && method === 'POST') {
-        console.log('[0] Menerima request POST /api/cart/remove...');
+    // --- RUTE KERANJANG (HAPUS ITEM) ---
+    else if (path === '/api/store/status' && method === 'GET') {
+        console.log('[0] Menerima request GET /api/store/status...');
         try {
-            const body = await getRequestBody(req);
-            const { userId, cartItemId } = body;
-
-            if (!userId || !cartItemId) {
-                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
+            let config = await StoreConfig.findOne();
+            if (!config) {
+                config = await StoreConfig.create({ isStoreOpen: true });
             }
-
-            // Ganti metode .id().remove() yang lama
-            // dengan $pull yang atomik dan modern
-            const updatedCart = await Cart.findOneAndUpdate(
-                { user: userId },
-                { $pull: { items: { _id: cartItemId } } },
-                { new: true } // Kembalikan dokumen yang sudah diperbarui
-            );
-
-            if (!updatedCart) {
-                return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
-            }
-            
-            console.log(`[0] Item ${cartItemId} dihapus dari keranjang`);
-            sendResponse(res, 200, { success: true, message: 'Item dihapus', data: updatedCart });
-
+            sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di POST /api/cart/remove:', error);
-            sendResponse(res, 500, { success: false, message: 'Server error saat menghapus item' });
+            console.error('[0] ERROR GET Store Status:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal mengambil status toko' });
         }
     }
-    // --- AKHIR BLOK PERBAIKAN ---
-
+    else if (path === '/api/store/status' && method === 'PUT') {
+        console.log('[0] Menerima request PUT /api/store/status...');
+        try {
+            const body = await getRequestBody(req);
+            const config = await StoreConfig.findOneAndUpdate(
+                {}, 
+                { isStoreOpen: body.isStoreOpen }, 
+                { new: true, upsert: true }
+            );
+            
+            console.log(`[Store Status] Toko sekarang: ${config.isStoreOpen ? 'BUKA' : 'TUTUP'}`);
+            sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
+        } catch (error) {
+            console.error('[0] ERROR PUT Store Status:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal update status toko' });
+        }
+    }
     else {
         sendResponse(res, 404, { success: false, message: 'Endpoint Not Found' });
     }
