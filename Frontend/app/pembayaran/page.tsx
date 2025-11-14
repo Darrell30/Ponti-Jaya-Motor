@@ -6,14 +6,13 @@ import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, Image, Modal, Alert, Spinner } from 'react-bootstrap';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Truck } from 'lucide-react'; // Untuk ikon COD
+import { Truck } from 'lucide-react'; 
 
-// --- PERBAIKAN 1: Buat Interface lebih fleksibel ---
 interface CheckoutItem {
   _id: string; 
   productId: string; 
-  name?: string;  // Bisa jadi 'name' (dari Beli Langsung)
-  nama?: string;  // Atau 'nama' (dari Keranjang)
+  name?: string;  
+  nama?: string;  
   harga: number; 
   image: string;
   quantity: number;
@@ -118,26 +117,24 @@ export default function PembayaranPage() {
     setError("");
     setIsPlacingOrder(true);
 
-    const orderStatus = paymentMethod === 'COD' ? 'Diproses' : 'Menunggu Pembayaran';
+    // --- PERBAIKAN 1 DI SINI ---
+    // Ubah 'COD' (uppercase) menjadi 'cod' (lowercase)
+    const orderStatus = paymentMethod === 'cod' ? 'Diproses' : 'Menunggu Pembayaran';
 
-    // --- PERBAIKAN 2: Logika Mapping Data ---
-    // Pastikan kita mengirim 'nama' (bukan 'name') ke backend
     const orderData = {
       userId: userId,
-      items: items.map(item => ({
+      items: items.map(item => ({ 
         productId: item.productId,
-        // Cek 'item.nama' (dari keranjang) ATAU 'item.name' (dari beli langsung)
         nama: item.nama || item.name, 
         harga: item.harga,
         image: item.image,
         quantity: item.quantity
       })),
       shippingAddress: address,
-      paymentMethod: paymentMethod.toUpperCase(), // 'COD' or 'QRIS'
+      paymentMethod: paymentMethod.toUpperCase(), // Ini tetap UPPERCASE untuk database
       totalAmount: grandTotal,
       status: orderStatus
     };
-    // --- AKHIR PERBAIKAN 2 ---
 
     try {
       const response = await fetch('http://localhost:5000/api/orders/create', {
@@ -148,21 +145,22 @@ export default function PembayaranPage() {
 
       const data = await response.json();
       if (!response.ok || !data.success) {
-        // Tampilkan pesan error dari server
         throw new Error(data.message || 'Gagal membuat pesanan');
       }
 
       localStorage.removeItem("checkoutItems");
       localStorage.setItem("showSuccessNotification", "Pesanan Sudah Berhasil Dibuat");
 
-      if (paymentMethod === 'COD') {
+      // --- PERBAIKAN 2 DI SINI ---
+      // Ubah 'COD' (uppercase) menjadi 'cod' (lowercase)
+      if (paymentMethod === 'cod') {
         router.push('/pembelian');
       } else {
         router.push(`/pembayaran/qris?orderId=${data.data._id}&total=${grandTotal}`);
       }
 
     } catch (err: any) {
-      setError(err.message); // Tampilkan pesan error di Alert
+      setError(err.message); 
       setIsPlacingOrder(false);
     }
   };
@@ -207,30 +205,25 @@ export default function PembayaranPage() {
               </Card.Body>
             </Card>
 
-            {/* 2. KARTU PRODUK DIPESAN */}
+            {/* ... (KARTU PRODUK DIPESAN SAMA) ... */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Produk Dipesan</h5>
-                
                 {items.length === 0 && (
                   <Alert variant="warning">
                     Tidak ada item. 
                     <Link href="/keranjang" className="alert-link">Kembali ke keranjang</Link>.
                   </Alert>
                 )}
-                
                 {items.map((item) => (
                   <Row key={item.productId} className="g-3 mb-3 align-items-center">
                     <Col xs="auto">
                       <Image src={item.image} alt={item.nama || item.name} rounded style={{ width: '60px', height: '60px', objectFit: 'cover' }} />
                     </Col>
                     <Col>
-                      {/* --- PERBAIKAN 3: Tampilkan nama yang benar --- */}
                       <h6 className="mb-1 fw-bold text-dark small">{item.nama || item.name}</h6>
                       <p className="text-secondary small mb-0">{item.quantity} x {item.harga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</p>
                     </Col>
-                    
-                    {/* ... (Tombol +/-/Hapus SAMA) ... */}
                     <Col xs="auto" className="d-flex align-items-center justify-content-end">
                       <Button 
                         variant="link" 
@@ -265,16 +258,12 @@ export default function PembayaranPage() {
               </Card.Body>
             </Card>
 
-            {/* 3. KARTU METODE PEMBAYARAN */}
+            {/* ... (KARTU METODE PEMBAYARAN SAMA) ... */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Metode Pembayaran</h5>
-                
-                {/* Tampilkan pesan error di sini */}
                 {error && <Alert variant="danger" className="py-2 small">{error}</Alert>}
-                
                 <Row>
-                  {/* ... (Pilihan QRIS SAMA) ... */}
                   <Col md={6} className="mb-2">
                     <Card 
                       className={`payment-option p-3 ${paymentMethod === 'qris' ? 'selected' : ''}`}
@@ -289,8 +278,6 @@ export default function PembayaranPage() {
                       </Form.Check>
                     </Card>
                   </Col>
-                  
-                  {/* ... (Pilihan COD SAMA) ... */}
                   <Col md={6} className="mb-2">
                     <Card 
                       className={`payment-option p-3 ${paymentMethod === 'cod' ? 'selected' : ''}`}
