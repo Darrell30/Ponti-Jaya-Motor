@@ -12,11 +12,13 @@ export default function LogoutPage() {
     // 1. Hapus SEMUA flag login dari localStorage
     localStorage.removeItem('isUserLoggedIn');
     localStorage.removeItem('isAdminLoggedIn');
-    // Hapus juga token jika Anda menyimpannya
-    // localStorage.removeItem('token');
+    
+    // === INI ADALAH PERBAIKANNYA ===
+    // Hapus juga data user (yang berisi userId)
+    localStorage.removeItem('userInfo');
+    // ========================
 
     // 2. Arahkan pengguna kembali ke homepage
-    // Kita beri sedikit delay agar pengguna tahu sesuatu terjadi
     const timer = setTimeout(() => {
       router.push('/');
     }, 1000); // 1 detik delay

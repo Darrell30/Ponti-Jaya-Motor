@@ -17,6 +17,8 @@
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "@googlemaps/google-maps-services-js": "^3.4.2",
+    "@react-google-maps/api": "^2.20.7",
     "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",
     "cloudinary": "^2.8.0",

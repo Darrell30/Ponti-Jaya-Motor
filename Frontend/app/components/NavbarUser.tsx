@@ -81,6 +81,7 @@ function NavbarUser() {
     setIsLoadingData(true);
     setModalMessage(null);
     try {
+      // Anda perlu mengganti ini dengan endpoint yang benar jika sudah ada
       const response = await fetch(`http://localhost:5000/api/users/profile?userId=${userId}`);
       const data = await response.json();
       
@@ -130,6 +131,7 @@ function NavbarUser() {
     setIsSaving(true);
     setModalMessage(null);
     try {
+      // Anda perlu mengganti ini dengan endpoint yang benar jika sudah ada
       const response = await fetch('http://localhost:5000/api/users/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -173,16 +175,14 @@ function NavbarUser() {
     autocompleteRef.current = autocompleteInstance;
   };
 
-  // --- INI PERBAIKANNYA ---
   const onPlaceChanged = () => {
     if (autocompleteRef.current) {
       const place = autocompleteRef.current.getPlace();
       
-      // Perbaikan: Cek !place DULU
       if (!place || !place.geometry || !place.geometry.location) {
         console.warn("Autocomplete error: User tidak memilih saran (mungkin menekan Enter).");
         setModalMessage({ type: 'error', text: 'Harap pilih alamat dari daftar saran yang muncul.' });
-        return; // Hentikan fungsi
+        return; 
       }
       
       if(modalMessage?.type === 'error') setModalMessage(null);
@@ -195,7 +195,6 @@ function NavbarUser() {
       map?.setZoom(15);
     }
   };
-  // --- AKHIR PERBAIKAN ---
 
   return (
     <>
@@ -311,21 +310,28 @@ function NavbarUser() {
 
               {!isLoaded && !loadError && <p className="text-muted small">Memuat peta...</p>}
               {loadError && <Alert variant="danger" className="small py-2">Error memuat Google Maps. Pastikan API Key Anda benar.</Alert>}
+              
+              {/* === PERUBAHAN STRUKTUR DI SINI === */}
               {isLoaded && (
                 <div className="maps-container">
-                  <Autocomplete
-                    onLoad={onAutocompleteLoad}
-                    onPlaceChanged={onPlaceChanged}
-                  >
-                    <InputGroup className="mb-2 shadow-sm">
-                      <InputGroup.Text><MapPin size={16} /></InputGroup.Text>
+                  
+                  {/* InputGroup sekarang membungkus Autocomplete */}
+                  <InputGroup className="mb-2 shadow-sm">
+                    <InputGroup.Text><MapPin size={16} /></InputGroup.Text>
+                    
+                    {/* Autocomplete HANYA membungkus Form.Control */}
+                    <Autocomplete
+                      onLoad={onAutocompleteLoad}
+                      onPlaceChanged={onPlaceChanged}
+                    >
                       <Form.Control
                         type="text"
                         placeholder="Cari alamat atau nama tempat..."
                         className="shadow-none"
                       />
-                    </InputGroup>
-                  </Autocomplete>
+                    </Autocomplete>
+                  </InputGroup>
+
                   <GoogleMap
                     mapContainerStyle={{
                       width: '100%',
@@ -348,6 +354,7 @@ function NavbarUser() {
                   </GoogleMap>
                 </div>
               )}
+              {/* === AKHIR PERUBAHAN === */}
             </Form>
           )}
           {modalMessage && (

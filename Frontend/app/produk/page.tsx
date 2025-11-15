@@ -1,10 +1,10 @@
 // app/produk/page.tsx
 'use client';
 
+// 1. MODIFIKASI: Import useRouter
 import { Container, Row, Col, Button, Image, Card, Spinner, Form, InputGroup, Modal, Alert, Toast, ToastContainer, Nav } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
-// 1. Import useRouter
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // <-- BARU
 import { Loader2, AlertTriangle, Truck } from 'lucide-react'; 
 
 // ... (interface Product, Service, dan konstanta lainnya SAMA)
@@ -34,7 +34,7 @@ const bestSellingProductNames = [
 
 export default function ProdukPage() {
   // 2. Inisialisasi router
-  const router = useRouter();
+  const router = useRouter(); // <-- BARU
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +56,7 @@ export default function ProdukPage() {
   const [services, setServices] = useState<Service[]>([]);
 
   useEffect(() => {
+    // ... (Logika fetchProducts Anda SAMA, tidak berubah) ...
     const fetchProducts = async () => {
       try {
         setLoading(true);
@@ -110,16 +111,19 @@ export default function ProdukPage() {
   };
   const subtotal = selectedProduct ? selectedProduct.harga * quantity : 0;
 
+  // === 3. MODIFIKASI: handleAddToCart ===
   const handleAddToCart = async () => {
-    // ... (Logika handleAddToCart SAMA, tidak berubah)
     setIsSubmitting(true);
     setModalMessage(null);
+
+    // --- Cek Login di sini ---
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      setModalMessage({ type: 'error', text: 'Anda harus login untuk menambah item.' });
-      setIsSubmitting(false);
+      router.push('/login'); // Alihkan ke halaman login
       return; 
     }
+    // --- Akhir Cek Login ---
+
     let userInfo;
     try {
       userInfo = JSON.parse(userInfoString);
@@ -167,54 +171,65 @@ export default function ProdukPage() {
     }
   };
 
-  // --- 3. FUNGSI BARU: Logika inti "Beli Langsung" ---
+  // --- 4. FUNGSI BARU: Logika inti "Beli Langsung" ---
   const proceedToCheckout = () => {
     if (!selectedProduct) return;
-
-    // A. Buat item yang akan di-checkout
-    // Strukturnya HARUS MIRIP dengan CartItem, tapi _id-nya palsu
-    // agar halaman pembayaran bisa membedakannya (jika perlu)
     const itemToCheckout = {
-      _id: `direct-${selectedProduct._id}`, // _id palsu
+      _id: `direct-${selectedProduct._id}`,
       productId: selectedProduct._id,
       name: selectedProduct.nama,
       harga: selectedProduct.harga,
       image: selectedProduct.imageUrl,
       quantity: quantity,
-      itemType: 'Sparepart' // Asumsi dari halaman produk adalah sparepart
+      itemType: 'Sparepart' 
     };
-
-    // B. Simpan ke localStorage
-    // Halaman /pembayaran akan membaca data dari sini
     localStorage.setItem("checkoutItems", JSON.stringify([itemToCheckout]));
-
-    // C. Tutup semua modal & pindah halaman
     handleCloseModal();
     setShowWarningModal(false);
     router.push('/pembayaran');
   };
 
-  // --- 4. MODIFIKASI: handleBuyNowClick ---
-  // Sekarang hanya mengecek status toko
+  // --- 5. MODIFIKASI: handleBuyNowClick ---
   const handleBuyNowClick = () => {
+    // --- Cek Login di sini ---
+    const userInfoString = localStorage.getItem("userInfo");
+    if (!userInfoString) {
+      router.push('/login'); // Alihkan ke halaman login
+      return; 
+    }
+    // --- Akhir Cek Login ---
+
+    // Jika sudah login, lanjutkan cek status toko
     if (!isStoreOpen) {
         setShowWarningModal(true);
     } else {
-        // Jika toko buka, LANGSUNG checkout
         proceedToCheckout();
     }
   };
   
-  // --- 5. MODIFIKASI: executeBuyProcess ---
-  // Fungsi ini dipanggil dari modal "Toko Tutup"
+  // --- 6. MODIFIKASI: executeBuyProcess ---
   const executeBuyProcess = () => {
-    // Tetap lanjutkan checkout, meski toko tutup
+    // Tidak perlu cek login di sini, karena tombolnya
+    // hanya bisa diakses setelah handleBuyNowClick (yang sudah dicek)
     proceedToCheckout(); 
+  };
+  
+  // --- 7. BARU: Handler untuk "Chat Toko" ---
+  const handleChatToko = () => {
+    // --- Cek Login di sini ---
+    const userInfoString = localStorage.getItem("userInfo");
+    if (!userInfoString) {
+      router.push('/login'); // Alihkan ke halaman login
+      return; 
+    }
+    // --- Akhir Cek Login ---
+    
+    // Logika chat (bisa diganti ke WA nanti)
+    alert('Fitur "Chat Toko" sedang dalam pengembangan.');
   };
   // ------------------------------------------------
 
   const buttonStyle = {
-    // ... (Style SAMA, tidak berubah)
     height: '48px',
     fontSize: '1.1rem',
     fontWeight: 'bold' as const, 
@@ -224,7 +239,6 @@ export default function ProdukPage() {
   };
   
   const filteredAndSortedProducts = products
-    // ... (Logika filter SAMA, tidak berubah)
     .filter(product => {
       if (activeCategory === 'Semua') return true;
       if (activeCategory === 'Sparepart') return product.kategori === 'Sparepart';
@@ -242,7 +256,7 @@ export default function ProdukPage() {
       return 0;
     });
 
-  // --- 6. RENDER JSX (SAMA, tidak ada perubahan di sini) ---
+  // --- RENDER JSX (MODIFIKASI PADA TOMBOL MODAL) ---
   return (
     <>
       <Container className="py-5">
@@ -358,12 +372,12 @@ export default function ProdukPage() {
                 
                 {modalMessage && modalMessage.type === 'error' && (<Alert variant="danger" className="py-2 small">{modalMessage.text}</Alert>)}
                 
+                {/* === MODIFIKASI: Tombol-tombol di-update === */}
                 <div className="d-flex flex-column gap-2">
                   <Button variant="primary" className="w-100 rounded-3 btn-add-to-cart" onClick={handleAddToCart} disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <><i className="bi bi-cart-plus me-2"></i>+ Keranjang</>}
                   </Button>
                   
-                  {/* Tombol ini sekarang memanggil handleBuyNowClick */}
                   <Button 
                     variant="outline-primary" 
                     className="w-100 rounded-3" 
@@ -374,8 +388,17 @@ export default function ProdukPage() {
                     Beli Langsung
                   </Button>
 
-                  <Button variant="outline-secondary" className="w-100 rounded-3" style={buttonStyle} disabled={isSubmitting}><i className="bi bi-chat-dots me-2"></i>Chat Toko</Button>
+                  <Button 
+                    variant="outline-secondary" 
+                    className="w-100 rounded-3" 
+                    style={buttonStyle} 
+                    disabled={isSubmitting}
+                    onClick={handleChatToko} // <-- BARU
+                  >
+                    <i className="bi bi-chat-dots me-2"></i>Chat Toko
+                  </Button>
                 </div>
+                {/* === AKHIR MODIFIKASI === */}
               </Col>
             </Row>
           )}
@@ -389,7 +412,7 @@ export default function ProdukPage() {
         </Toast>
       </ToastContainer>
 
-      {/* --- Modal Peringatan Toko Tutup (SAMA, tapi onClick-nya sekarang memanggil executeBuyProcess yang sudah diubah) --- */}
+      {/* ... (Modal Peringatan Toko Tutup SAMA) ... */}
       <Modal 
         show={showWarningModal} 
         onHide={() => setShowWarningModal(false)} 
