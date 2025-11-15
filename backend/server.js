@@ -7,7 +7,6 @@ const { v2: cloudinary } = require('cloudinary');
 const busboy = require('busboy');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
-const url = require('url'); 
 
 // Impor Model
 const Sparepart = require('./models/sparepart'); 
@@ -16,6 +15,7 @@ const User = require('./models/User');
 const Otp = require('./models/Otp'); 
 const Cart = require('./models/Cart'); 
 const StoreConfig = require('./models/StoreConfig');
+const Order = require('./models/Order'); // <-- Impor Order
 
 // Variabel Lingkungan
 const PORT = process.env.PORT || 3000;
@@ -68,6 +68,20 @@ const connectDB = async () => {
     }
 };
 
+// Helper untuk mengekstrak Public ID dari URL Cloudinary
+const getPublicIdFromUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    try {
+        const urlSegment = imageUrl.split('/upload/')[1]; 
+        const publicIdWithVersion = urlSegment.substring(urlSegment.indexOf('/') + 1); 
+        const public_id = publicIdWithVersion.split('.').slice(0, -1).join('.'); 
+        return public_id;
+    } catch (error) {
+        console.error("Gagal parse Public ID dari URL:", imageUrl, error);
+        return null;
+    }
+}
+
 // Fungsi utilitas (sendResponse & getRequestBody)
 const sendResponse = (res, statusCode, data) => {
     res.writeHead(statusCode, { 
@@ -108,36 +122,50 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // ========================================================================
-    // [PERBAIKAN] JALUR KHUSUS DELETE SPAREPART (DITARUH DI ATAS AGAR TERBACA)
-    // ========================================================================
+    // JALUR KHUSUS DELETE SPAREPART
     if (method === 'DELETE' && path.startsWith('/api/spareparts/')) {
         const id = path.split('/')[3];
         console.log(`[0] Menerima request DELETE (Jalur Khusus) untuk ID: ${id}`);
         
         try {
-            // Cari dan hapus
-            const deletedProduct = await Sparepart.findByIdAndDelete(id);
+            // LANGKAH 1: Cari produknya dulu di DB
+            const productToDelete = await Sparepart.findById(id);
             
-            if (!deletedProduct) {
+            if (!productToDelete) {
                 return sendResponse(res, 404, { success: false, message: 'Produk tidak ditemukan' });
             }
 
-            console.log(`[0] Produk berhasil dihapus: ${id}`);
-            // PENTING: Return di sini agar tidak lanjut ke kode di bawah
-            return sendResponse(res, 200, { success: true, message: 'Produk berhasil dihapus' });
+            // LANGKAH 2: Hapus gambar di Cloudinary
+            const public_id = getPublicIdFromUrl(productToDelete.imageUrl);
+            if (public_id) {
+                try {
+                    await cloudinary.uploader.destroy(public_id);
+                    console.log(`[Cloudinary] Berhasil menghapus gambar: ${public_id}`);
+                } catch (cldError) {
+                    console.warn(`[Cloudinary] Gagal menghapus gambar: ${public_id}. Error:`, cldError.message);
+                }
+            } else {
+                console.warn(`[Cloudinary] Tidak bisa mendapatkan Public ID dari URL: ${productToDelete.imageUrl}`);
+            }
+
+            // LANGKAH 3: Hapus produk dari MongoDB
+            await Sparepart.findByIdAndDelete(id);
+
+            console.log(`[0] Produk berhasil dihapus dari DB: ${id}`);
+            return sendResponse(res, 200, { success: true, message: 'Produk dan gambar berhasil dihapus' });
+
         } catch (error) {
             console.error('[0] ERROR DELETE:', error);
             return sendResponse(res, 500, { success: false, message: 'Gagal menghapus produk' });
         }
     }
-
-    if (path === '/api/store/status' && method === 'GET') {
+    
+    // Rute Status Toko
+    else if (path === '/api/store/status' && method === 'GET') {
         console.log('[0] Menerima request GET /api/store/status...');
         try {
             let config = await StoreConfig.findOne();
             if (!config) {
-                // Jika config belum ada di DB, buat baru (default Buka)
                 config = await StoreConfig.create({ isStoreOpen: true });
             }
             return sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
@@ -146,18 +174,14 @@ const server = http.createServer(async (req, res) => {
             return sendResponse(res, 500, { success: false, message: 'Gagal mengambil status toko' });
         }
     }
-
-    // PUT Status Toko (Untuk Mengubah Buka/Tutup)
-    if (path === '/api/store/status' && method === 'PUT') {
+    else if (path === '/api/store/status' && method === 'PUT') {
         console.log('[0] Menerima request PUT /api/store/status...');
         try {
             const body = await getRequestBody(req);
-
-            // Cari dan update (atau buat baru jika belum ada)
             const config = await StoreConfig.findOneAndUpdate(
-                {}, // Cari satu-satunya dokumen config
-                { isStoreOpen: body.isStoreOpen }, // Set data baru
-                { new: true, upsert: true } // Opsi: kembalikan data baru & buat jika belum ada
+                {}, 
+                { isStoreOpen: body.isStoreOpen }, 
+                { new: true, upsert: true } 
             );
 
             console.log(`[Store Status] Toko sekarang: ${config.isStoreOpen ? 'BUKA' : 'TUTUP'}`);
@@ -167,23 +191,16 @@ const server = http.createServer(async (req, res) => {
             return sendResponse(res, 500, { success: false, message: 'Gagal update status toko' });
         }
     }
-    
-
 
     //Routing Sparepart 
-    if (path.startsWith('/api/spareparts')) {
+    else if (path.startsWith('/api/spareparts')) {
         
         // GET /api/spareparts (Get All)
         if (path === '/api/spareparts' && method === 'GET') {
-            
             console.log('[0] Menerima request GET /api/spareparts...'); 
-            
             try {
-                console.log('[0] Mencoba menjalankan Sparepart.find()...');
                 const spareparts = await Sparepart.find({});
-                console.log(`[0] Berhasil! Ditemukan ${spareparts.length} sparepart.`);
                 sendResponse(res, 200, { success: true, count: spareparts.length, data: spareparts });
-                console.log('[0] Respons 200 berhasil dikirim.');
             } catch (error) {
                 console.error('[0] CRITICAL ERROR di /api/spareparts:', error);
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving spareparts' });
@@ -200,7 +217,6 @@ const server = http.createServer(async (req, res) => {
                 sendResponse(res, 400, { success: false, message: message });
             }
         } 
-        
         // PUT /api/spareparts/:id (Update)
         else if (method === 'PUT' && path.split('/').length === 4) {
             console.log('[0] Menerima request PUT /api/spareparts/:id...');
@@ -209,28 +225,22 @@ const server = http.createServer(async (req, res) => {
                 if (!id) {
                     return sendResponse(res, 400, { success: false, message: 'ID produk tidak ditemukan di URL' });
                 }
-
                 const body = await getRequestBody(req);
-
                 const updatedSparepart = await Sparepart.findByIdAndUpdate(id, body, {
                     new: true,
                     runValidators: true
                 });
-
                 if (!updatedSparepart) {
                     return sendResponse(res, 404, { success: false, message: 'Produk tidak ditemukan' });
                 }
-                
                 console.log(`[0] Produk berhasil di-update: ${updatedSparepart._id}`);
                 sendResponse(res, 200, { success: true, message: 'Produk berhasil diperbarui', data: updatedSparepart });
-
             } catch (error) {
                 console.error('[0] CRITICAL ERROR di PUT /api/spareparts:', error);
                 const message = error.name === 'ValidationError' ? error.message : 'Server error saat memperbarui produk';
                 sendResponse(res, 400, { success: false, message: message });
             }
         }
-        
         // GET /api/spareparts/:id (Get by ID)
         else if (method === 'GET' && path.split('/').length === 4) {
             const id = path.split('/')[3];
@@ -248,7 +258,6 @@ const server = http.createServer(async (req, res) => {
     
     // --- Routing Jasa (Services)
     else if (path.startsWith('/api/services')) {
-        
         // GET /api/services (Get All)
         if (path === '/api/services' && method === 'GET') {
             try {
@@ -287,28 +296,25 @@ const server = http.createServer(async (req, res) => {
 
     // --- UPLOAD GAMBAR ---
     else if (path === '/api/upload' && method === 'POST') {
-        
         if (!req.headers['content-type'] || !req.headers['content-type'].startsWith('multipart/form-data')) {
             return sendResponse(res, 400, { success: false, message: 'Content-Type harus multipart/form-data' });
         }
-
         try {
             const bb = busboy({ headers: req.headers });
-
             bb.on('file', (name, fileStream, info) => {
                 const { filename } = info;
-                
+                const uniqueFilename = filename.split('.').slice(0, -1).join('.');
                 const uploadStream = cloudinary.uploader.upload_stream(
                     {
-                        folder: "ponti_jaya_motor", // Nama folder di Cloudinary
-                        public_id: filename 
+                        folder: "ponti_jaya_motor",
+                        public_id: uniqueFilename,
+                        overwrite: true
                     },
                     (error, result) => {
                         if (error) {
                             console.error('Cloudinary upload error:', error);
                             return sendResponse(res, 500, { success: false, message: 'Upload ke Cloudinary gagal' });
                         }
-                        
                         sendResponse(res, 201, {
                             success: true,
                             message: 'File berhasil di-upload',
@@ -317,17 +323,13 @@ const server = http.createServer(async (req, res) => {
                         });
                     }
                 );
-
                 fileStream.pipe(uploadStream);
             });
-
             bb.on('error', (err) => {
                 console.error('Busboy error:', err);
                 sendResponse(res, 500, { success: false, message: 'Gagal mem-parsing file' });
             });
-
             req.pipe(bb);
-
         } catch (error) {
             console.error('Error di /api/upload:', error);
             sendResponse(res, 500, { success: false, message: 'Internal server error' });
@@ -366,52 +368,43 @@ const server = http.createServer(async (req, res) => {
 
     // --- RUTE REGISTRASI PENGGUNA ---
     else if (path === '/api/daftar' && method === 'POST') {
-        
         console.log('[0] Menerima request POST /api/daftar...'); 
-        
         try {
             const body = await getRequestBody(req); 
             const { username, email, password, otp } = body;
-
             if (!username || !email || !password || !otp) {
                 return sendResponse(res, 400, { success: false, message: 'Semua field (termasuk OTP) wajib diisi' });
             }
-
             const fiveMinutesAgo = new Date(Date.now() - 300 * 1000); 
             const validOtp = await Otp.findOne({
                 email: email,
                 otp: otp,
                 createdAt: { $gte: fiveMinutesAgo } 
             });
-
             if (!validOtp) {
                 return sendResponse(res, 400, { success: false, message: 'Kode OTP salah atau telah kedaluwarsa' });
             }
-
             const existingUser = await User.findOne({ $or: [{ email: email }, { username: username }] });
             if (existingUser) {
                 const message = existingUser.email === email ? 'Email sudah terdaftar' : 'Username sudah digunakan';
                 return sendResponse(res, 400, { success: false, message: message });
             }
-
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
-
             const newUser = await User.create({
                 username,
                 email,
                 password: hashedPassword
             });
-            
+            await Cart.create({ user: newUser._id, items: [] });
+            console.log(`[0] Keranjang kosong dibuat untuk user: ${newUser.username}`);
             console.log(`[0] User baru berhasil dibuat: ${newUser.username}`);
             await Otp.deleteMany({ email });
-            
             sendResponse(res, 201, { 
                 success: true, 
                 message: 'User berhasil dibuat', 
                 data: { userId: newUser._id, username: newUser.username } 
             });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di /api/daftar:', error);
             const message = error.name === 'ValidationError' ? error.message : 'Server error saat membuat user';
@@ -425,26 +418,20 @@ const server = http.createServer(async (req, res) => {
         try {
             const body = await getRequestBody(req);
             const { identifier, password } = body; 
-
             if (!identifier || !password) {
                 return sendResponse(res, 400, { success: false, message: 'Username/Email dan password wajib diisi' });
             }
-
             const user = await User.findOne({
                 $or: [{ email: identifier }, { username: identifier }]
             });
-
             if (!user) {
                 return sendResponse(res, 404, { success: false, message: 'Username atau Email tidak ditemukan' });
             }
-
             const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) {
                 return sendResponse(res, 400, { success: false, message: 'Password salah' });
             }
-
             console.log(`[0] Login berhasil untuk: ${user.username} (Role: ${user.role})`);
-            
             sendResponse(res, 200, {
                 success: true,
                 message: 'Login berhasil',
@@ -455,7 +442,6 @@ const server = http.createServer(async (req, res) => {
                     role: user.role
                 }
             });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di /api/login:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat login' });
@@ -483,17 +469,13 @@ const server = http.createServer(async (req, res) => {
             if (!userId) {
                 return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
             }
-
-            const cart = await Cart.findOne({ user: userId });
-
+            const cart = await Cart.findOne({ user: userId }); 
             if (!cart) {
                 console.log(`[0] Tidak ada keranjang ditemukan untuk user ${userId}.`);
-                return sendResponse(res, 200, { success: true, data: { items: [] } });
+                return sendResponse(res, 200, { success: true, data: { _id: null, user: userId, items: [] } });
             }
-
             console.log(`[0] Keranjang ditemukan untuk user ${userId}, mengirim ${cart.items.length} item.`);
             sendResponse(res, 200, { success: true, data: cart });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di GET /api/cart:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat mengambil keranjang' });
@@ -506,18 +488,18 @@ const server = http.createServer(async (req, res) => {
         try {
             const body = await getRequestBody(req);
             const { userId, productId, name, price, image, itemType, quantity = 1 } = body;
-
-            if (!userId || !productId || !name || !price || !image || !itemType) {
+            if (!userId) {
+                return sendResponse(res, 400, { success: false, message: 'User ID tidak valid. Harap login kembali.' });
+            }
+            if (!productId || !name || !price || !image || !itemType) {
                 return sendResponse(res, 400, { success: false, message: 'Data item tidak lengkap' });
             }
-
             let cart = await Cart.findOne({ user: userId });
             if (!cart) {
-                cart = await Cart.create({ user: userId, items: [] });
+                 console.log(`[0] Keranjang tidak ada untuk ${userId}, membuatkan...`);
+                 cart = await Cart.create({ user: userId, items: [] });
             }
-
             const existingItem = cart.items.find(item => item.productId === productId);
-
             if (existingItem) {
                 existingItem.quantity += quantity;
             } else {
@@ -530,11 +512,9 @@ const server = http.createServer(async (req, res) => {
                     quantity 
                 });
             }
-
             await cart.save(); 
             console.log(`[0] Item ${name} ditambahkan ke keranjang user ${userId}`);
             sendResponse(res, 200, { success: true, message: 'Item ditambahkan ke keranjang', data: cart });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di POST /api/cart/add:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat menambah item' });
@@ -547,68 +527,153 @@ const server = http.createServer(async (req, res) => {
         try {
             const body = await getRequestBody(req);
             const { userId, cartItemId, quantity } = body; 
-
             if (!userId || !cartItemId || quantity === undefined) {
                 return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
             }
-            
             if (quantity < 1) {
                 return sendResponse(res, 400, { success: false, message: 'Quantity tidak boleh kurang dari 1' });
             }
-
             const cart = await Cart.findOne({ user: userId });
             if (!cart) {
                 return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
             }
-
             const itemToUpdate = cart.items.id(cartItemId);
             if (!itemToUpdate) {
                 return sendResponse(res, 404, { success: false, message: 'Item tidak ditemukan di keranjang' });
             }
-
             itemToUpdate.quantity = quantity;
             await cart.save();
-            
             console.log(`[0] Quantity item ${cartItemId} diupdate menjadi ${quantity}`);
             sendResponse(res, 200, { success: true, message: 'Quantity diperbarui', data: cart });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di PUT /api/cart/update:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat update quantity' });
         }
     }
-
+    
     // --- RUTE KERANJANG (HAPUS ITEM) ---
-    else if (path === '/api/store/status' && method === 'GET') {
-        console.log('[0] Menerima request GET /api/store/status...');
-        try {
-            let config = await StoreConfig.findOne();
-            if (!config) {
-                config = await StoreConfig.create({ isStoreOpen: true });
-            }
-            sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
-        } catch (error) {
-            console.error('[0] ERROR GET Store Status:', error);
-            sendResponse(res, 500, { success: false, message: 'Gagal mengambil status toko' });
-        }
-    }
-    else if (path === '/api/store/status' && method === 'PUT') {
-        console.log('[0] Menerima request PUT /api/store/status...');
+    else if (path === '/api/cart/remove' && method === 'POST') {
+        console.log('[0] Menerima request POST /api/cart/remove...');
         try {
             const body = await getRequestBody(req);
-            const config = await StoreConfig.findOneAndUpdate(
-                {}, 
-                { isStoreOpen: body.isStoreOpen }, 
-                { new: true, upsert: true }
+            const { userId, cartItemId } = body;
+            if (!userId || !cartItemId) {
+                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
+            }
+            const updatedCart = await Cart.findOneAndUpdate(
+                { user: userId },
+                { $pull: { items: { _id: cartItemId } } },
+                { new: true } 
             );
-            
-            console.log(`[Store Status] Toko sekarang: ${config.isStoreOpen ? 'BUKA' : 'TUTUP'}`);
-            sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
+            if (!updatedCart) {
+                return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
+            }
+            console.log(`[0] Item ${cartItemId} dihapus dari keranjang`);
+            sendResponse(res, 200, { success: true, message: 'Item dihapus', data: updatedCart });
         } catch (error) {
-            console.error('[0] ERROR PUT Store Status:', error);
-            sendResponse(res, 500, { success: false, message: 'Gagal update status toko' });
+            console.error('[0] CRITICAL ERROR di POST /api/cart/remove:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat menghapus item' });
         }
     }
+    
+    // --- RUTE PESANAN BARU (UNTUK ADMIN) ---
+    else if (path === '/api/orders/all' && method === 'GET') {
+        console.log('[0] Menerima request GET /api/orders/all (ADMIN)...');
+        try {
+            const orders = await Order.find({})
+                .populate('user', 'username email') // Mengambil data user (username & email saja)
+                .sort({ createdAt: -1 }); // Urutkan dari yang terbaru
+
+            sendResponse(res, 200, { success: true, data: orders });
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di GET /api/orders/all:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat mengambil semua pesanan' });
+        }
+    }
+
+    // --- RUTE UPDATE STATUS PESANAN (UNTUK ADMIN) ---
+    else if (path === '/api/orders/status' && method === 'PUT') {
+        console.log('[0] Menerima request PUT /api/orders/status (ADMIN)...');
+        try {
+            const body = await getRequestBody(req);
+            const { orderId, newStatus } = body;
+
+            if (!orderId || !newStatus) {
+                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap (orderId atau newStatus)' });
+            }
+            
+            const updatedOrder = await Order.findByIdAndUpdate(
+                orderId,
+                { status: newStatus }, // Hanya update status
+                { new: true } // Kirim balik dokumen yang sudah di-update
+            ).populate('user', 'username email'); // Kirim balik juga data user
+
+            if (!updatedOrder) {
+                return sendResponse(res, 404, { success: false, message: 'Pesanan tidak ditemukan' });
+            }
+            
+            console.log(`[0] Status pesanan ${orderId} diubah menjadi ${newStatus}`);
+            sendResponse(res, 200, { success: true, message: 'Status berhasil diubah', data: updatedOrder });
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di PUT /api/orders/status:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal update status' });
+        }
+    }
+    
+    // --- RUTE MEMBUAT PESANAN (UNTUK USER) ---
+    else if (path === '/api/orders/create' && method === 'POST') {
+        console.log('[0] Menerima request POST /api/orders/create...');
+        try {
+            const body = await getRequestBody(req);
+            const { userId, items, shippingAddress, paymentMethod, totalAmount, status } = body;
+            if (!userId || !items || !shippingAddress || !paymentMethod || !totalAmount) {
+                return sendResponse(res, 400, { success: false, message: 'Data pesanan tidak lengkap' });
+            }
+            const newOrder = await Order.create({
+                user: userId,
+                items: items,
+                shippingAddress: shippingAddress,
+                paymentMethod: paymentMethod,
+                totalAmount: totalAmount,
+                status: status
+            });
+            console.log(`[0] Pesanan baru ${newOrder._id} berhasil dibuat untuk user ${userId}`);
+            
+            const itemProductIds = items.map(item => item.productId);
+            await Cart.findOneAndUpdate(
+                { user: userId },
+                { $pull: { items: { productId: { $in: itemProductIds } } } },
+                { new: true }
+            );
+            console.log(`[0] Item yang di-checkout sudah dihapus dari keranjang user ${userId}`);
+            sendResponse(res, 201, { success: true, message: 'Pesanan berhasil dibuat', data: newOrder });
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di POST /api/orders/create:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat membuat pesanan' });
+        }
+    }
+
+    // --- RUTE MENGAMBIL PESANAN (UNTUK USER) ---
+    else if (path === '/api/orders' && method === 'GET') {
+        console.log('[0] Menerima request GET /api/orders...');
+        try {
+            const userId = parsedUrl.searchParams.get('userId');
+            if (!userId) {
+                return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
+            }
+            const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+            if (!orders) {
+                return sendResponse(res, 200, { success: true, data: [] });
+            }
+            console.log(`[0] Ditemukan ${orders.length} pesanan untuk user ${userId}`);
+            sendResponse(res, 200, { success: true, data: orders });
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di GET /api/orders:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat mengambil pesanan' });
+        }
+    }
+    
+    // --- Rute 404 ---
     else {
         sendResponse(res, 404, { success: false, message: 'Endpoint Not Found' });
     }
@@ -618,6 +683,5 @@ const server = http.createServer(async (req, res) => {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`🚀 Server running for Ponti Jaya Motor on http://localhost:${PORT}`);
-        console.log(`Endpoints: ... /api/cart, /api/cart/add, /api/cart/update, /api/cart/remove`);
     });
 });

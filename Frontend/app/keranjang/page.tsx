@@ -4,36 +4,40 @@
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, Image, ListGroup, Modal, Spinner } from 'react-bootstrap';
 import Link from 'next/link';
+// 1. Import useRouter
+import { useRouter } from 'next/navigation';
 
-// Tipe data item keranjang
+// ... (interface CartItem SAMA)
 interface CartItem {
   _id: string; 
   productId: string; 
-  name: string; // Di frontend kita akan sebut 'name'
-  harga: number; // <-- DIPERBAIKI: dari 'price' menjadi 'harga'
+  name: string;
+  harga: number;
   image: string;
   quantity: number;
   itemType: 'Sparepart' | 'Service';
 }
 
 export default function KeranjangPage() {
+  // 2. Inisialisasi router
+  const router = useRouter();
+
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // --- State untuk "Pilih Semua" ---
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  // === STATE UNTUK ALAMAT & MODAL ===
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [address, setAddress] = useState("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat");
   const [tempAddress, setTempAddress] = useState(address);
 
-  // Ambil UserID dari localStorage
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  // ... (useEffect untuk UserID SAMA)
   useEffect(() => {
-    // Cek info user dari login
-    // Pastikan key-nya "userInfo" sesuai dengan file login/page.tsx
     const userInfoString = localStorage.getItem("userInfo"); 
     if (userInfoString) {
       const userInfo = JSON.parse(userInfoString);
@@ -44,14 +48,14 @@ export default function KeranjangPage() {
     }
   }, []);
 
-  // Ambil data Keranjang SETELAH userId didapat
+  // ... (useEffect untuk fetchCart SAMA)
   useEffect(() => {
     if (userId) {
       fetchCart(userId);
     }
   }, [userId]); 
 
-  // Fungsi Mengambil data keranjang
+  // ... (fetchCart SAMA)
   const fetchCart = async (currentUserId: string) => {
     setLoading(true);
     setError(null);
@@ -61,10 +65,7 @@ export default function KeranjangPage() {
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Gagal mengambil data keranjang');
       }
-      
-      // Backend mengirim 'data: cart'
-      setCartItems(data.data.items || []); // Memastikan items adalah array
-
+      setCartItems(data.data.items || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -72,17 +73,14 @@ export default function KeranjangPage() {
     }
   };
 
-  // Fungsi Update Kuantitas
+  // ... (handleUpdateQuantity SAMA)
   const handleUpdateQuantity = async (cartItemId: string, newQuantity: number) => {
     if (!userId || newQuantity < 1) return; 
-
-    // Optimistic UI update
     setCartItems(currentItems =>
       currentItems.map(item =>
         item._id === cartItemId ? { ...item, quantity: newQuantity } : item
       )
     );
-
     try {
       const response = await fetch('http://localhost:5000/api/cart/update', {
         method: 'PUT',
@@ -93,27 +91,22 @@ export default function KeranjangPage() {
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Gagal update kuantitas');
       }
-      // Set state dari server
       setCartItems(data.data.items);
     } catch (err: any) {
       setError(err.message);
-      if (userId) fetchCart(userId); // Rollback jika gagal
+      if (userId) fetchCart(userId);
     }
   };
 
-  // Fungsi Hapus Item
+  // ... (handleRemoveItem SAMA)
   const handleRemoveItem = async (cartItemId: string) => {
     if (!userId) return;
-
-    // Optimistic UI update
     setCartItems(currentItems => currentItems.filter(item => item._id !== cartItemId));
-    // Juga hapus dari item yang dipilih
     setSelectedItems(prevSelected => {
       const newSelected = new Set(prevSelected);
       newSelected.delete(cartItemId);
       return newSelected;
     });
-
     try {
       const response = await fetch('http://localhost:5000/api/cart/remove', {
         method: 'POST',
@@ -124,15 +117,30 @@ export default function KeranjangPage() {
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Gagal menghapus item');
       }
-      // Set state dari server
       setCartItems(data.data.items);
     } catch (err: any) {
       setError(err.message);
-      if (userId) fetchCart(userId); // Rollback jika gagal
+      if (userId) fetchCart(userId);
     }
   };
 
-  // Fungsi "Pilih Semua"
+  // ... (Fungsi Modal Hapus SAMA)
+  const handleShowDeleteModal = (cartItemId: string) => {
+    setItemToDelete(cartItemId);
+    setShowDeleteModal(true);
+  };
+  const handleCloseDeleteModal = () => {
+    setItemToDelete(null);
+    setShowDeleteModal(false);
+  };
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      handleRemoveItem(itemToDelete);
+    }
+    handleCloseDeleteModal();
+  };
+
+  // ... (handleSelectAll SAMA)
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       const allItemIds = cartItems.map(item => item._id);
@@ -142,7 +150,7 @@ export default function KeranjangPage() {
     }
   };
 
-  // Fungsi "Pilih Satu Item"
+  // ... (handleSelectItem SAMA)
   const handleSelectItem = (itemId: string) => {
     const newSelected = new Set(selectedItems);
     if (newSelected.has(itemId)) {
@@ -153,7 +161,7 @@ export default function KeranjangPage() {
     setSelectedItems(newSelected);
   };
 
-  // Handlers Modal Alamat
+  // ... (Modal Alamat SAMA)
   const handleOpenAddressModal = () => {
     setTempAddress(address); 
     setShowAddressModal(true);
@@ -163,23 +171,45 @@ export default function KeranjangPage() {
     setShowAddressModal(false);
   };
 
-  // Kalkulasi Total (hanya item yang dipilih)
+  // --- 3. FUNGSI BARU: Logika "Beli Sekarang" ---
+  const handleBeliSekarang = () => {
+    // A. Filter item di keranjang untuk mendapatkan item yg dipilih
+    const itemsToCheckout = cartItems.filter(item => 
+      selectedItems.has(item._id)
+    );
+
+    if (itemsToCheckout.length === 0) {
+      // Seharusnya tombolnya disabled, tapi ini untuk jaga-jaga
+      alert("Pilih minimal 1 item untuk dibeli.");
+      return;
+    }
+
+    // B. Simpan ke localStorage
+    localStorage.setItem("checkoutItems", JSON.stringify(itemsToCheckout));
+    
+    // C. Simpan alamat yang dipilih ke localStorage juga
+    // Agar halaman pembayaran bisa langsung menggunakannya
+    localStorage.setItem("shippingAddress", address);
+
+    // D. Pindah ke halaman pembayaran
+    router.push('/pembayaran');
+  };
+
+  // ... (Kalkulasi total SAMA)
   const total = cartItems
     .filter(item => selectedItems.has(item._id)) 
     .reduce((acc, item) => acc + (item.harga * item.quantity), 0); 
-
-  // Cek apakah semua item sedang dipilih
   const isAllSelected = cartItems.length > 0 && selectedItems.size === cartItems.length;
 
   return (
-    // Background abu-abu
+    // ... (JSX Latar Belakang, Container, Judul SAMA)
     <div className="w-100 py-5" style={{ backgroundColor: '#E5E9F0', minHeight: '100vh' }}>
       <Container>
         <h1 className="fw-bold text-dark mb-4">Keranjang</h1>
         
         <Row className="g-custom-20">
           
-          {/* === Kolom Kiri: Daftar Item === */}
+          {/* ... (Kolom Kiri, Card, Header, Loading, Error, Kosong... SEMUA SAMA) ... */}
           <Col lg={8}>
             <Card className="shadow-sm border-0 rounded-3">
               <Card.Header className="bg-white border-0 py-3">
@@ -193,7 +223,6 @@ export default function KeranjangPage() {
                 />
               </Card.Header>
               
-              {/* --- TAMPILAN LOADING / ERROR / KOSONG --- */}
               {loading && (
                 <div className="text-center p-5">
                   <Spinner animation="border" />
@@ -213,7 +242,6 @@ export default function KeranjangPage() {
                 </div>
               )}
 
-              {/* --- DAFTAR ITEM KERANJANG (DARI STATE) --- */}
               {!loading && !error && cartItems.length > 0 && (
                 <ListGroup variant="flush">
                   {cartItems.map((item) => (
@@ -243,7 +271,7 @@ export default function KeranjangPage() {
                           <Button 
                             variant="link" 
                             className="text-danger p-0 me-3"
-                            onClick={() => handleRemoveItem(item._id)}
+                            onClick={() => handleShowDeleteModal(item._id)}
                           >
                             <i className="bi bi-trash fs-5"></i>
                           </Button>
@@ -279,6 +307,7 @@ export default function KeranjangPage() {
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Ringkasan Belanja</h5>
                 
+                {/* ... (Total, HR, Alamat... SAMA) ... */}
                 <div className="d-flex justify-content-between mb-3">
                   <span className="text-secondary">Total</span>
                   <span className="fw-bold fs-5 text-dark">
@@ -304,11 +333,13 @@ export default function KeranjangPage() {
                   {address}
                 </p>
 
+                {/* --- 4. MODIFIKASI TOMBOL --- */}
                 <Button 
                   variant="primary" 
                   size="lg" 
                   className="w-100 fw-bold mt-2"
                   disabled={selectedItems.size === 0} 
+                  onClick={handleBeliSekarang} // <-- Panggil fungsi baru
                 >
                   Beli Sekarang
                 </Button>
@@ -319,7 +350,7 @@ export default function KeranjangPage() {
         </Row>
       </Container>
 
-      {/* === MODAL UBAH ALAMAT === */}
+      {/* ... (Modal Alamat SAMA) ... */}
       <Modal show={showAddressModal} onHide={() => setShowAddressModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Ubah Alamat Pengiriman</Modal.Title>
@@ -345,6 +376,24 @@ export default function KeranjangPage() {
           </Button>
           <Button variant="primary" onClick={handleSaveAddress} className="fw-bold">
             Simpan Alamat
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* ... (Modal Hapus SAMA) ... */}
+      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fw-bold fs-5">Konfirmasi Hapus</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Apakah anda Yakin Untuk Menghapus Produk?
+        </Modal.Body>
+        <Modal.Footer className="border-0">
+          <Button variant="outline-secondary" onClick={handleCloseDeleteModal}>
+            Tidak
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDelete} className="fw-bold">
+            Ya
           </Button>
         </Modal.Footer>
       </Modal>
