@@ -11,24 +11,19 @@ const orderItemSchema = new mongoose.Schema({
 });
 
 const orderSchema = new mongoose.Schema({
-    // Siapa yang pesan
     user: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'User', 
         required: true 
     },
-    // Apa saja barangnya
     items: [orderItemSchema],
-    
-    // Detail Pengiriman & Pembayaran
     shippingAddress: { type: String, required: true },
+    
     paymentMethod: { 
         type: String, 
-        enum: ['COD', 'QRIS'], 
-        required: true 
+        default: 'Belum Dipilih' // akan isi otomatis dari Midtrans
     },
     
-    // Status & Total
     totalAmount: { type: Number, required: true },
     status: {
         type: String,
@@ -37,7 +32,7 @@ const orderSchema = new mongoose.Schema({
     }
 }, {
     collection: 'Orders',
-    timestamps: true // Otomatis menambah createdAt dan updatedAt
+    timestamps: true 
 });
 
 module.exports = mongoose.model('Order', orderSchema);

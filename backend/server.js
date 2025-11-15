@@ -8,6 +8,9 @@ const busboy = require('busboy');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 
+// --- 1. IMPORT LIBRARY MIDTRANS ---
+const midtransClient = require('midtrans-client');
+
 // Impor Model
 const Sparepart = require('./models/sparepart'); 
 const Service = require('./models/service'); 
@@ -43,15 +46,19 @@ const transporter = nodemailer.createTransport({
         pass: process.env.GMAIL_PASS
     }
 });
-
 transporter.verify((error, success) => {
-    if (error) {
-        console.error('❌ Nodemailer config error:', error.message);
-        console.warn('Peringatan: Pastikan GMAIL_USER dan GMAIL_PASS (App Password) sudah benar di .env');
-    } else {
-        console.log('✅ Nodemailer (Email) configured successfully!');
-    }
+    if (error) { console.error('❌ Nodemailer config error:', error.message); }
+    else { console.log('✅ Nodemailer (Email) configured successfully!'); }
 });
+
+// --- 2. INISIALISASI MIDTRANS SNAP ---
+const snap = new midtransClient.Snap({
+    isProduction : false, // Pastikan ini 'false' untuk mode Sandbox
+    serverKey : process.env.MIDTRANS_SERVER_KEY,
+    clientKey : process.env.MIDTRANS_CLIENT_KEY
+});
+console.log('✅ Midtrans Snap configured in Sandbox mode!');
+
 
 // Koneksi ke MongoDB
 const connectDB = async () => {
@@ -92,13 +99,10 @@ const sendResponse = (res, statusCode, data) => {
     });
     res.end(JSON.stringify(data));
 };
-
 const getRequestBody = (req) => {
     return new Promise((resolve) => {
         let body = '';
-        req.on('data', chunk => {
-            body += chunk.toString();
-        });
+        req.on('data', chunk => { body += chunk.toString(); });
         req.on('end', () => {
             try {
                 resolve(body ? JSON.parse(body) : {}); 
@@ -126,7 +130,6 @@ const server = http.createServer(async (req, res) => {
     if (method === 'DELETE' && path.startsWith('/api/spareparts/')) {
         const id = path.split('/')[3];
         console.log(`[0] Menerima request DELETE (Jalur Khusus) untuk ID: ${id}`);
-        
         try {
             const productToDelete = await Sparepart.findById(id);
             if (!productToDelete) {
@@ -433,7 +436,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
     
-    // --- [RUTE BARU 1] GET PROFIL USER ---
+    // --- RUTE PROFIL USER (GET & PUT) ---
     else if (path === '/api/users/profile' && method === 'GET') {
         console.log('[0] Menerima request GET /api/users/profile...');
         try {
@@ -441,50 +444,34 @@ const server = http.createServer(async (req, res) => {
             if (!userId) {
                 return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
             }
-
-            const user = await User.findById(userId).select('-password'); // Ambil semua KECUALI password
+            const user = await User.findById(userId).select('-password');
             if (!user) {
                 return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
             }
-            
             sendResponse(res, 200, { success: true, data: user });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di GET /api/users/profile:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat mengambil profil' });
         }
     }
-
-    // --- [RUTE BARU 2] PUT PROFIL USER ---
     else if (path === '/api/users/profile' && method === 'PUT') {
         console.log('[0] Menerima request PUT /api/users/profile...');
         try {
             const body = await getRequestBody(req);
             const { userId, username, telpon, alamat } = body;
-
             if (!userId) {
                 return sendResponse(res, 400, { success: false, message: 'userId wajib diisi' });
             }
-            
-            // Cek jika username baru sudah dipakai user lain
             const existingUser = await User.findOne({ username: username, _id: { $ne: userId } });
             if (existingUser) {
                 return sendResponse(res, 400, { success: false, message: 'Username tersebut sudah digunakan oleh akun lain' });
             }
-
-            const updatedUser = await User.findByIdAndUpdate(
-                userId,
-                { username, telpon, alamat },
-                { new: true, runValidators: true } // Kirim balik data baru & jalankan validator
-            ).select('-password');
-
+            const updatedUser = await User.findByIdAndUpdate( userId, { username, telpon, alamat }, { new: true, runValidators: true } ).select('-password');
             if (!updatedUser) {
                 return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
             }
-            
             console.log(`[0] Profil user ${userId} berhasil di-update`);
             sendResponse(res, 200, { success: true, message: 'Profil berhasil disimpan', data: updatedUser });
-
         } catch (error) {
             console.error('[0] CRITICAL ERROR di PUT /api/users/profile:', error);
             sendResponse(res, 500, { success: false, message: 'Gagal update profil' });
@@ -504,266 +491,115 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // --- RUTE KERANJANG (GET) ---
+    // --- RUTE KERANJANG (GET, ADD, UPDATE, REMOVE) ---
     else if (path === '/api/cart' && method === 'GET') {
-        console.log('[0] Menerima request GET /api/cart...');
         try {
             const userId = parsedUrl.searchParams.get('userId');
-            if (!userId) {
-                return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
-            }
+            if (!userId) { return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' }); }
             const cart = await Cart.findOne({ user: userId }); 
-            if (!cart) {
-                console.log(`[0] Tidak ada keranjang ditemukan untuk user ${userId}.`);
-                return sendResponse(res, 200, { success: true, data: { _id: null, user: userId, items: [] } });
-            }
-            console.log(`[0] Keranjang ditemukan untuk user ${userId}, mengirim ${cart.items.length} item.`);
+            if (!cart) { return sendResponse(res, 200, { success: true, data: { _id: null, user: userId, items: [] } }); }
             sendResponse(res, 200, { success: true, data: cart });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di GET /api/cart:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat mengambil keranjang' });
         }
     }
-
-    // --- RUTE KERANJANG (TAMBAH ITEM) ---
     else if (path === '/api/cart/add' && method === 'POST') {
-        console.log('[0] Menerima request POST /api/cart/add...');
         try {
             const body = await getRequestBody(req);
             const { userId, productId, name, price, image, itemType, quantity = 1 } = body;
-            if (!userId) {
-                return sendResponse(res, 400, { success: false, message: 'User ID tidak valid. Harap login kembali.' });
-            }
-            if (!productId || !name || !price || !image || !itemType) {
-                return sendResponse(res, 400, { success: false, message: 'Data item tidak lengkap' });
-            }
+            if (!userId) { return sendResponse(res, 400, { success: false, message: 'User ID tidak valid. Harap login kembali.' }); }
+            if (!productId || !name || !price || !image || !itemType) { return sendResponse(res, 400, { success: false, message: 'Data item tidak lengkap' }); }
             let cart = await Cart.findOne({ user: userId });
-            if (!cart) {
-                 console.log(`[0] Keranjang tidak ada untuk ${userId}, membuatkan...`);
-                 cart = await Cart.create({ user: userId, items: [] });
-            }
+            if (!cart) { cart = await Cart.create({ user: userId, items: [] }); }
             const existingItem = cart.items.find(item => item.productId === productId);
-            if (existingItem) {
-                existingItem.quantity += quantity;
-            } else {
-                cart.items.push({ 
-                    productId, 
-                    nama: name, 
-                    harga: price, 
-                    image, 
-                    itemType, 
-                    quantity 
-                });
-            }
+            if (existingItem) { existingItem.quantity += quantity; } else { cart.items.push({ productId, nama: name, harga: price, image, itemType, quantity }); }
             await cart.save(); 
-            console.log(`[0] Item ${name} ditambahkan ke keranjang user ${userId}`);
             sendResponse(res, 200, { success: true, message: 'Item ditambahkan ke keranjang', data: cart });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di POST /api/cart/add:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat menambah item' });
         }
     }
-
-    // --- RUTE KERANJANG (UPDATE QTY) ---
     else if (path === '/api/cart/update' && method === 'PUT') {
-        console.log('[0] Menerima request PUT /api/cart/update...');
         try {
             const body = await getRequestBody(req);
             const { userId, cartItemId, quantity } = body; 
-            if (!userId || !cartItemId || quantity === undefined) {
-                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
-            }
-            if (quantity < 1) {
-                return sendResponse(res, 400, { success: false, message: 'Quantity tidak boleh kurang dari 1' });
-            }
+            if (!userId || !cartItemId || quantity === undefined) { return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' }); }
+            if (quantity < 1) { return sendResponse(res, 400, { success: false, message: 'Quantity tidak boleh kurang dari 1' }); }
             const cart = await Cart.findOne({ user: userId });
-            if (!cart) {
-                return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
-            }
+            if (!cart) { return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' }); }
             const itemToUpdate = cart.items.id(cartItemId);
-            if (!itemToUpdate) {
-                return sendResponse(res, 404, { success: false, message: 'Item tidak ditemukan di keranjang' });
-            }
+            if (!itemToUpdate) { return sendResponse(res, 404, { success: false, message: 'Item tidak ditemukan di keranjang' }); }
             itemToUpdate.quantity = quantity;
             await cart.save();
-            console.log(`[0] Quantity item ${cartItemId} diupdate menjadi ${quantity}`);
             sendResponse(res, 200, { success: true, message: 'Quantity diperbarui', data: cart });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di PUT /api/cart/update:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat update quantity' });
         }
     }
-    
-    // --- RUTE KERANJANG (HAPUS ITEM) ---
     else if (path === '/api/cart/remove' && method === 'POST') {
-        console.log('[0] Menerima request POST /api/cart/remove...');
         try {
             const body = await getRequestBody(req);
             const { userId, cartItemId } = body;
-            if (!userId || !cartItemId) {
-                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
-            }
-            const updatedCart = await Cart.findOneAndUpdate(
-                { user: userId },
-                { $pull: { items: { _id: cartItemId } } },
-                { new: true } 
-            );
-            if (!updatedCart) {
-                return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' });
-            }
-            console.log(`[0] Item ${cartItemId} dihapus dari keranjang`);
+            if (!userId || !cartItemId) { return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' }); }
+            const updatedCart = await Cart.findOneAndUpdate( { user: userId }, { $pull: { items: { _id: cartItemId } } }, { new: true } );
+            if (!updatedCart) { return sendResponse(res, 404, { success: false, message: 'Keranjang tidak ditemukan' }); }
             sendResponse(res, 200, { success: true, message: 'Item dihapus', data: updatedCart });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di POST /api/cart/remove:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat menghapus item' });
         }
     }
     
-    // --- RUTE PESANAN BARU (UNTUK ADMIN) ---
+    // --- RUTE PESANAN (GET ALL, UPDATE STATUS, GET BY USER) ---
     else if (path === '/api/orders/all' && method === 'GET') {
-        console.log('[0] Menerima request GET /api/orders/all (ADMIN)...');
         try {
-            const orders = await Order.find({})
-                .populate('user', 'username email') 
-                .sort({ createdAt: -1 }); 
-
+            const orders = await Order.find({}).populate('user', 'username email').sort({ createdAt: -1 });
             sendResponse(res, 200, { success: true, data: orders });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di GET /api/orders/all:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat mengambil semua pesanan' });
         }
     }
-
-    // --- RUTE UPDATE STATUS PESANAN (UNTUK ADMIN) ---
     else if (path === '/api/orders/status' && method === 'PUT') {
-        console.log('[0] Menerima request PUT /api/orders/status (ADMIN)...');
         try {
             const body = await getRequestBody(req);
             const { orderId, newStatus } = body;
-
-            if (!orderId || !newStatus) {
-                return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap (orderId atau newStatus)' });
-            }
-            
-            const updatedOrder = await Order.findByIdAndUpdate(
-                orderId,
-                { status: newStatus }, 
-                { new: true } 
-            ).populate('user', 'username email'); 
-
-            if (!updatedOrder) {
-                return sendResponse(res, 404, { success: false, message: 'Pesanan tidak ditemukan' });
-            }
-            
-            console.log(`[0] Status pesanan ${orderId} diubah menjadi ${newStatus}`);
+            if (!orderId || !newStatus) { return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap (orderId atau newStatus)' }); }
+            const updatedOrder = await Order.findByIdAndUpdate( orderId, { status: newStatus }, { new: true } ).populate('user', 'username email');
+            if (!updatedOrder) { return sendResponse(res, 404, { success: false, message: 'Pesanan tidak ditemukan' }); }
             sendResponse(res, 200, { success: true, message: 'Status berhasil diubah', data: updatedOrder });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di PUT /api/orders/status:', error);
             sendResponse(res, 500, { success: false, message: 'Gagal update status' });
         }
     }
-    
-    // --- RUTE MEMBUAT PESANAN (UNTUK USER) ---
-    else if (path === '/api/orders/create' && method === 'POST') {
-        console.log('[0] Menerima request POST /api/orders/create...');
-        try {
-            const body = await getRequestBody(req);
-            const { userId, items, shippingAddress, paymentMethod, totalAmount, status } = body;
-            if (!userId || !items || !shippingAddress || !paymentMethod || !totalAmount) {
-                return sendResponse(res, 400, { success: false, message: 'Data pesanan tidak lengkap' });
-            }
-            const newOrder = await Order.create({
-                user: userId,
-                items: items,
-                shippingAddress: shippingAddress,
-                paymentMethod: paymentMethod,
-                totalAmount: totalAmount,
-                status: status
-            });
-            console.log(`[0] Pesanan baru ${newOrder._id} berhasil dibuat untuk user ${userId}`);
-            
-            const itemProductIds = items.map(item => item.productId);
-            await Cart.findOneAndUpdate(
-                { user: userId },
-                { $pull: { items: { productId: { $in: itemProductIds } } } },
-                { new: true }
-            );
-            console.log(`[0] Item yang di-checkout sudah dihapus dari keranjang user ${userId}`);
-            sendResponse(res, 201, { success: true, message: 'Pesanan berhasil dibuat', data: newOrder });
-        } catch (error) {
-            console.error('[0] CRITICAL ERROR di POST /api/orders/create:', error);
-            sendResponse(res, 500, { success: false, message: 'Server error saat membuat pesanan' });
-        }
-    }
-
-    // --- RUTE MENGAMBIL PESANAN (UNTUK USER) ---
     else if (path === '/api/orders' && method === 'GET') {
-        console.log('[0] Menerima request GET /api/orders...');
         try {
             const userId = parsedUrl.searchParams.get('userId');
-            if (!userId) {
-                return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
-            }
+            if (!userId) { return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' }); }
             const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
-            if (!orders) {
-                return sendResponse(res, 200, { success: true, data: [] });
-            }
-            console.log(`[0] Ditemukan ${orders.length} pesanan untuk user ${userId}`);
+            if (!orders) { return sendResponse(res, 200, { success: true, data: [] }); }
             sendResponse(res, 200, { success: true, data: orders });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di GET /api/orders:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat mengambil pesanan' });
         }
     }
-    
-    // --- RUTE STATISTIK DASHBOARD ADMIN ---
+    // --- RUTE DASHBOARD STATS ---
     else if (path === '/api/admin/dashboard-stats' && method === 'GET') {
-        console.log('[0] Menerima request GET /api/admin/dashboard-stats...');
         try {
             const [
-                totalRevenueData,
-                totalSoldItemsData,
-                totalInCartsData,
-                lowStockProducts,
-                topSellingProducts
+                totalRevenueData, totalSoldItemsData, totalInCartsData,
+                lowStockProducts, topSellingProducts
             ] = await Promise.all([
-                Order.aggregate([
-                    { $match: { status: 'Selesai' } },
-                    { $group: { _id: null, total: { $sum: "$totalAmount" } } }
-                ]),
-                Order.aggregate([
-                    { $match: { status: 'Selesai' } },
-                    { $unwind: '$items' },
-                    { $group: { _id: null, total: { $sum: "$items.quantity" } } }
-                ]),
-                Cart.aggregate([
-                    { $unwind: '$items' },
-                    { $group: { _id: null, total: { $sum: "$items.quantity" } } }
-                ]),
+                Order.aggregate([ { $match: { status: 'Selesai' } }, { $group: { _id: null, total: { $sum: "$totalAmount" } } } ]),
+                Order.aggregate([ { $match: { status: 'Selesai' } }, { $unwind: '$items' }, { $group: { _id: null, total: { $sum: "$items.quantity" } } } ]),
+                Cart.aggregate([ { $unwind: '$items' }, { $group: { _id: null, total: { $sum: "$items.quantity" } } } ]),
                 Sparepart.find({ stok: { $lt: 10 } }).sort({ stok: 1 }),
                 Order.aggregate([
-                    { $match: { status: 'Selesai' } },
-                    { $unwind: '$items' },
-                    { $group: { 
-                        _id: '$items.productId',
-                        totalSold: { $sum: '$items.quantity' } 
-                    }},
-                    { $sort: { totalSold: -1 } },
-                    { $limit: 6 },
+                    { $match: { status: 'Selesai' } }, { $unwind: '$items' },
+                    { $group: { _id: '$items.productId', totalSold: { $sum: '$items.quantity' } }},
+                    { $sort: { totalSold: -1 } }, { $limit: 6 },
                     { $addFields: { "productIdObj": { "$toObjectId": "$_id" } } },
-                    { $lookup: {
-                        from: 'Sparepart', 
-                        localField: 'productIdObj',
-                        foreignField: '_id',
-                        as: 'productInfo'
-                    }},
+                    { $lookup: { from: 'Sparepart', localField: 'productIdObj', foreignField: '_id', as: 'productInfo' }},
                     { $unwind: '$productInfo' },
-                    { $project: {
-                        _id: 0,
-                        nama: '$productInfo.nama',
-                        imageUrl: '$productInfo.imageUrl',
-                        totalSold: '$totalSold'
-                    }}
+                    { $project: { _id: 0, nama: '$productInfo.nama', imageUrl: '$productInfo.imageUrl', totalSold: '$totalSold' }}
                 ])
             ]);
             const stats = {
@@ -771,17 +607,149 @@ const server = http.createServer(async (req, res) => {
                 totalSoldItems: totalSoldItemsData[0]?.total || 0,
                 totalInCarts: totalInCartsData[0]?.total || 0
             };
-            sendResponse(res, 200, {
-                success: true,
-                data: {
-                    stats,
-                    lowStockProducts,
-                    topSellingProducts
-                }
-            });
+            sendResponse(res, 200, { success: true, data: { stats, lowStockProducts, topSellingProducts } });
         } catch (error) {
             console.error('[0] CRITICAL ERROR di GET /api/admin/dashboard-stats:', error);
             sendResponse(res, 500, { success: false, message: 'Gagal mengambil statistik dashboard' });
+        }
+    }
+
+    // --- RUTE CREATE ORDER (MIDTRANS) ---
+    else if (path === '/api/orders/create' && method === 'POST') {
+        console.log('[0] Menerima request POST /api/orders/create (Midtrans)...');
+        try {
+            const body = await getRequestBody(req);
+            const { userId, items, shippingAddress, totalAmount } = body;
+            
+            if (!userId || !items || !shippingAddress || !totalAmount) {
+                return sendResponse(res, 400, { success: false, message: 'Data pesanan tidak lengkap' });
+            }
+            
+            const user = await User.findById(userId);
+            if (!user) {
+                return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
+            }
+
+            const newOrder = await Order.create({
+                user: userId,
+                items: items,
+                shippingAddress: shippingAddress,
+                paymentMethod: 'Midtrans', 
+                totalAmount: totalAmount,
+                status: 'Menunggu Pembayaran'
+            });
+            
+            console.log(`[0] Order ${newOrder._id} dibuat, status: Menunggu Pembayaran.`);
+
+            let parameter = {
+                "transaction_details": {
+                    "order_id": newOrder._id.toString(), 
+                    "gross_amount": totalAmount
+                },
+                "customer_details": {
+                    "first_name": user.username,
+                    "email": user.email,
+                    "phone": user.telpon || '', 
+                    "shipping_address": {
+                        "address": shippingAddress
+                    }
+                },
+                // Aktifkan semua metode pembayaran yang Anda inginkan
+                "enabled_payments": ["qris", "bca_va", "bni_va", "bri_va", "other_va", "alfamart", "indomaret", "gopay"]
+            };
+
+            const transaction = await snap.createTransaction(parameter);
+            
+            let transactionToken = transaction.token;
+            console.log(`[0] Midtrans token dibuat untuk order ${newOrder._id}: ${transactionToken}`);
+
+            sendResponse(res, 201, { 
+                success: true, 
+                message: 'Token pembayaran berhasil dibuat', 
+                data: {
+                    orderId: newOrder._id,
+                    token: transactionToken
+                }
+            });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di POST /api/orders/create (Midtrans):', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat membuat transaksi Midtrans' });
+        }
+    }
+
+    // --- RUTE WEBHOOK (NOTIFIKASI) DARI MIDTRANS ---
+    else if (path === '/api/midtrans/notifikasi' && method === 'POST') {
+        console.log('[0] Menerima Notifikasi Webhook dari Midtrans...');
+        try {
+            const notificationBody = await getRequestBody(req);
+
+            // --- INI PERBAIKANNYA (Menghapus 'await') ---
+            // 1. Verifikasi notifikasi (ini BUKAN async)
+            const notification = snap.transaction.notification(notificationBody);
+            // --- AKHIR PERBAIKAN ---
+            
+            const orderId = notification.order_id;
+            const transactionStatus = notification.transaction_status;
+            const fraudStatus = notification.fraud_status;
+            const paymentType = notification.payment_type;
+
+            console.log(`[0] Notifikasi untuk Order ID ${orderId}: ${transactionStatus}`);
+
+            const order = await Order.findById(orderId);
+            if (!order) {
+                console.warn(`[0] Webhook diterima untuk Order ID ${orderId} tapi tidak ditemukan di DB.`);
+                return sendResponse(res, 404, { success: false, message: 'Order tidak ditemukan' });
+            }
+
+            // Hanya update jika statusnya masih "Menunggu Pembayaran"
+            // Ini untuk mencegah notifikasi ganda menimpa status "Dikirim"
+            if (order.status === 'Menunggu Pembayaran') {
+                let newStatus = order.status;
+                
+                if (transactionStatus == 'capture') {
+                    if (fraudStatus == 'accept') {
+                        newStatus = 'Diproses';
+                    }
+                } else if (transactionStatus == 'settlement') {
+                    // Pembayaran (non-kartu kredit, misal QRIS/VA) berhasil
+                    newStatus = 'Diproses';
+                } else if (transactionStatus == 'pending') {
+                    // Biarkan "Menunggu Pembayaran"
+                    newStatus = 'Menunggu Pembayaran';
+                } else if (transactionStatus == 'deny' || transactionStatus == 'cancel' || transactionStatus == 'expire') {
+                    // Pembayaran gagal atau dibatalkan
+                    newStatus = 'Dibatalkan';
+                }
+
+                // Simpan status baru & tipe pembayaran
+                order.status = newStatus;
+                order.paymentMethod = paymentType; // Simpan metode yg dipakai (mis: 'qris' atau 'bca_va')
+                await order.save();
+                
+                console.log(`[0] Order ${orderId} diupdate. Status: ${newStatus}, Metode: ${paymentType}`);
+                
+                // Jika lunas ("Diproses"), bersihkan keranjang user
+                if (newStatus === 'Diproses') {
+                    const itemProductIds = order.items.map(item => item.productId);
+                    await Cart.findOneAndUpdate(
+                        { user: order.user },
+                        { $pull: { items: { productId: { $in: itemProductIds } } } },
+                        { new: true }
+                    );
+                    console.log(`[0] Keranjang untuk user ${order.user} telah dibersihkan.`);
+                }
+            } else {
+                console.log(`[0] Status order ${orderId} sudah ${order.status}. Webhook diabaikan.`);
+            }
+
+            // 6. Balas ke Midtrans dengan status 200 OK
+            sendResponse(res, 200, { success: true, message: 'Notifikasi diterima' });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di Webhook Midtrans:', error.message);
+            // Kirim 500 agar Midtrans mencoba kirim lagi
+            sendResponse(res, 500, { success: false, message: error.message });
         }
     }
     

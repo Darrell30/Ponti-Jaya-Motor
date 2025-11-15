@@ -1,18 +1,22 @@
 // app/pembayaran/page.tsx
 'use client';
 
-// === MODIFIKASI: Tambahan import ===
 import { useState, useEffect, useRef } from 'react';
 import { 
   Container, Row, Col, Card, Button, Form, Image, Modal, Alert, Spinner,
-  InputGroup // <-- Baru
+  InputGroup
 } from 'react-bootstrap';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-// === BARU: Import untuk Ikon dan Google Maps ===
-import { Truck, Home as HomeIcon, MapPin } from 'lucide-react'; 
+import { Home as HomeIcon, MapPin } from 'lucide-react'; 
 import { useJsApiLoader, GoogleMap, Autocomplete } from '@react-google-maps/api';
-// =============================================
+
+// Deklarasikan 'window.snap' agar TypeScript tidak error
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
 
 interface CheckoutItem {
   _id: string; 
@@ -24,11 +28,9 @@ interface CheckoutItem {
   quantity: number;
 }
 
-// === BARU: Konstanta untuk Google Maps ===
 interface MapCenter { lat: number; lng: number; }
-const defaultCenter: MapCenter = { lat: -6.2088, lng: 106.8456 }; // Default: Jakarta
+const defaultCenter: MapCenter = { lat: -6.2088, lng: 106.8456 };
 const libraries: ("places")[] = ['places'];
-// ===================================
 
 export default function PembayaranPage() {
   const router = useRouter();
@@ -36,33 +38,27 @@ export default function PembayaranPage() {
   const [items, setItems] = useState<CheckoutItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false); // Loading untuk tombol Bayar
 
-  // === MODIFIKASI: State untuk Alamat & Modal ===
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [address, setAddress] = useState("Memuat alamat...");
   const [tempAddress, setTempAddress] = useState("");
-  // ===========================================
 
-  const [paymentMethod, setPaymentMethod] = useState(''); // 'qris' or 'cod'
-  const [error, setError] = useState(''); 
+  const [error, setError] = useState(''); // Untuk menampilkan error
 
-  // === BARU: State untuk Google Maps & Modal ===
+  // State Google Maps (SAMA)
   const [isSaving, setIsSaving] = useState(false);
   const [modalMessage, setModalMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [mapCenter, setMapCenter] = useState<MapCenter>(defaultCenter);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  // ===========================================
 
-  // === BARU: Loader Google Maps API ===
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string,
     libraries: libraries,
   });
-  // ====================================
 
-  // Ambil data User, Alamat, dan Item
+  // useEffect untuk ambil data (SAMA)
   useEffect(() => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
@@ -73,7 +69,6 @@ export default function PembayaranPage() {
     const currentUserId = userInfo.userId;
     setUserId(currentUserId);
 
-    // Ambil Alamat
     const storedAddress = localStorage.getItem("shippingAddress");
     if (storedAddress) {
       setAddress(storedAddress);
@@ -82,7 +77,6 @@ export default function PembayaranPage() {
       fetchProfile(currentUserId);
     }
 
-    // Ambil Item
     const itemsString = localStorage.getItem("checkoutItems");
     if (!itemsString) {
       alert("Tidak ada item untuk di-checkout.");
@@ -100,7 +94,7 @@ export default function PembayaranPage() {
 
   }, [router]);
 
-  // Fungsi: Mengambil profil (alamat) user
+  // Fungsi fetchProfile (SAMA)
   const fetchProfile = async (currentUserId: string) => {
     try {
       const response = await fetch(`http://localhost:5000/api/users/profile?userId=${currentUserId}`);
@@ -116,7 +110,7 @@ export default function PembayaranPage() {
     }
   };
 
-  // === BARU: Fungsi Helper Google Maps ===
+  // ... (Semua fungsi Google Maps dan Modal Alamat SAMA) ...
   const geocodeAddress = (addressString: string) => {
     if (!isLoaded) return;
     const geocoder = new window.google.maps.Geocoder();
@@ -147,21 +141,16 @@ export default function PembayaranPage() {
       if(modalMessage?.type === 'error') setModalMessage(null);
       const lat = place.geometry.location.lat();
       const lng = place.geometry.location.lng();
-      setTempAddress(place.formatted_address || ""); // <-- Update tempAddress
+      setTempAddress(place.formatted_address || "");
       setMapCenter({ lat, lng });
       map?.panTo({ lat, lng });
       map?.setZoom(15);
     }
   };
-  // =======================================
-
-  // === MODIFIKASI: Handlers Modal Alamat ===
   const handleOpenAddressModal = () => {
-    setTempAddress(address); // Set form state dari state utama
+    setTempAddress(address); 
     setModalMessage(null);
     setIsSaving(false);
-    
-    // Geocode alamat saat ini ketika modal dibuka
     if (isLoaded) {
       if (address && address !== "Memuat alamat..." && address !== "Alamat belum diatur") {
         geocodeAddress(address);
@@ -172,15 +161,9 @@ export default function PembayaranPage() {
     }
     setShowAddressModal(true);
   };
-
   const handleCloseAddressModal = () => setShowAddressModal(false);
-
   const handleSaveAddress = async () => {
-    // Di halaman checkout, kita HANYA update state lokal.
-    // Alamat ini akan disimpan saat pesanan dibuat (handleBayar)
     setAddress(tempAddress);
-    
-    // Opsional: Simpan juga ke profil user di DB
     if (userId) {
       try {
         await fetch('http://localhost:5000/api/users/profile', {
@@ -188,7 +171,6 @@ export default function PembayaranPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: userId, alamat: tempAddress })
         });
-        // Update local storage juga
         const userInfoString = localStorage.getItem("userInfo");
         if (userInfoString) {
           const userInfo = JSON.parse(userInfoString);
@@ -201,9 +183,6 @@ export default function PembayaranPage() {
     }
     handleCloseAddressModal();
   };
-  // =========================================
-
-  // ... (Fungsi +/-/Hapus tidak berubah) ...
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     if (newQuantity < 1) newQuantity = 1; 
     setItems(currentItems =>
@@ -218,22 +197,20 @@ export default function PembayaranPage() {
     );
   };
 
-  // ... (Kalkulasi Total tidak berubah) ...
+  // Kalkulasi Total (SAMA)
   const subtotal = items.reduce((acc, item) => acc + (item.harga * item.quantity), 0);
-  const shippingCost = 15000;
+  const shippingCost = 15000; 
   const grandTotal = subtotal + shippingCost;
 
-  // ... (Fungsi handleBayar tidak berubah) ...
+  // === FUNGSI UTAMA: TOMBOL BAYAR (VERSI MIDTRANS) ===
   const handleBayar = async () => {
-    if (!paymentMethod) { setError("Harap pilih metode pembayaran terlebih dahulu."); return; }
     if (items.length === 0) { setError("Tidak ada item di checkout Anda."); return; }
     if (!userId) { setError("Sesi Anda berakhir. Harap login kembali."); return; }
 
     setError("");
     setIsPlacingOrder(true);
 
-    const orderStatus = paymentMethod === 'cod' ? 'Diproses' : 'Menunggu Pembayaran';
-
+    // Siapkan data untuk backend
     const orderData = {
       userId: userId,
       items: items.map(item => ({
@@ -243,29 +220,57 @@ export default function PembayaranPage() {
         image: item.image,
         quantity: item.quantity
       })),
-      shippingAddress: address, // <-- Menggunakan 'address' state yang sudah di-update
-      paymentMethod: paymentMethod.toUpperCase(),
+      shippingAddress: address,
       totalAmount: grandTotal,
-      status: orderStatus
     };
 
     try {
+      // 1. Panggil API Anda untuk membuat pesanan & dapatkan token
       const response = await fetch('http://localhost:5000/api/orders/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
       });
+      
       const data = await response.json();
-      if (!response.ok || !data.success) { throw new Error(data.message || 'Gagal membuat pesanan'); }
-
-      localStorage.removeItem("checkoutItems");
-      localStorage.setItem("showSuccessNotification", "Pesanan Sudah Berhasil Dibuat");
-
-      if (paymentMethod === 'cod') {
-        router.push('/pembelian');
-      } else {
-        router.push(`/pembayaran/qris?orderId=${data.data._id}&total=${grandTotal}`);
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Gagal membuat pesanan');
       }
+
+      const transactionToken = data.data.token;
+      
+      // Bersihkan item checkout dari localStorage
+      localStorage.removeItem("checkoutItems");
+
+      // 2. Panggil pop-up Midtrans (Snap)
+      window.snap.pay(transactionToken, {
+        onSuccess: function(result: any){
+          /* Pembayaran sukses! */
+          console.log('success', result);
+          localStorage.setItem("showSuccessNotification", "Pesanan Sudah Berhasil Dibuat");
+          router.push('/pembelian');
+        },
+        onPending: function(result: any){
+          /* Pembayaran pending (misal: VA belum dibayar) */
+          console.log('pending', result);
+          localStorage.setItem("showSuccessNotification", "Pesanan Anda sedang menunggu pembayaran.");
+          router.push('/pembelian');
+        },
+        onError: function(result: any){
+          /* Pembayaran gagal */
+          console.log('error', result);
+          setError("Pembayaran gagal. Silakan coba lagi.");
+          setIsPlacingOrder(false);
+        },
+        onClose: function(){
+          /* User menutup pop-up tanpa bayar */
+          console.log('customer closed the popup without finishing the payment');
+          setError("Anda menutup pop-up pembayaran sebelum selesai.");
+          setIsPlacingOrder(false);
+        }
+      });
+      // Kita set false di sini agar tombol bisa diklik lagi jika user menutup pop-up
+      // setIsPlacingOrder(false); // Dihandle oleh onClose/onError
 
     } catch (err: any) {
       setError(err.message); 
@@ -275,7 +280,6 @@ export default function PembayaranPage() {
 
 
   if (loading) {
-    // ... (Indikator Loading tidak berubah) ...
     return (
       <div className="w-100 py-5 text-center" style={{ backgroundColor: '#E5E9F0', minHeight: '100vh' }}>
         <Spinner animation="border" />
@@ -293,7 +297,7 @@ export default function PembayaranPage() {
           
           <Col lg={8} className="d-flex flex-column gap-4">
             
-            {/* ... (Kartu Alamat Pengiriman tidak berubah) ... */}
+            {/* 1. KARTU ALAMAT (SAMA) */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <div className="d-flex justify-content-between align-items-start mb-2">
@@ -312,7 +316,7 @@ export default function PembayaranPage() {
               </Card.Body>
             </Card>
 
-            {/* ... (Kartu Produk Dipesan tidak berubah) ... */}
+            {/* 2. KARTU PRODUK DIPESAN (SAMA) */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Produk Dipesan</h5>
@@ -358,47 +362,22 @@ export default function PembayaranPage() {
               </Card.Body>
             </Card>
 
-            {/* ... (Kartu Metode Pembayaran tidak berubah) ... */}
+            {/* 3. KARTU METODE PEMBAYARAN (VERSI MIDTRANS) */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Metode Pembayaran</h5>
                 {error && <Alert variant="danger" className="py-2 small">{error}</Alert>}
-                <Row>
-                  <Col md={6} className="mb-2">
-                    <Card 
-                      className={`payment-option p-3 ${paymentMethod === 'qris' ? 'selected' : ''}`}
-                      onClick={() => { setPaymentMethod('qris'); setError(''); }}
-                    >
-                      <Form.Check type="radio" id="qris-radio" className="fw-bold">
-                        <Form.Check.Input type="radio" checked={paymentMethod === 'qris'} readOnly />
-                        <Form.Check.Label className="d-flex align-items-center gap-2">
-                          <i className="bi bi-qr-code fs-5"></i> QRIS
-                        </Form.Check.Label>
-                        <span className="text-secondary small d-block ms-4">Bayar dengan QR code (Gopay, OVO, ShopeePay, dll)</span>
-                      </Form.Check>
-                    </Card>
-                  </Col>
-                  <Col md={6} className="mb-2">
-                    <Card 
-                      className={`payment-option p-3 ${paymentMethod === 'cod' ? 'selected' : ''}`}
-                      onClick={() => { setPaymentMethod('cod'); setError(''); }}
-                    >
-                      <Form.Check type="radio" id="cod-radio" className="fw-bold">
-                        <Form.Check.Input type="radio" checked={paymentMethod === 'cod'} readOnly />
-                        <Form.Check.Label className="d-flex align-items-center gap-2">
-                          <Truck size={18} /> COD (Bayar di Tempat)
-                        </Form.Check.Label>
-                        <span className="text-secondary small d-block ms-4">Bayar tunai ke kurir saat barang diterima</span>
-                      </Form.Check>
-                    </Card>
-                  </Col>
-                </Row>
+                <p className="text-secondary">
+                  Anda akan memilih metode pembayaran (QRIS, Virtual Account, dll) setelah menekan tombol "Bayar Sekarang". 
+                  Semua transaksi diproses dengan aman melalui Midtrans.
+                </p>
+                <img src="https://midtrans.com/assets/img/logo-midtrans-color.png" alt="Midtrans" height="20" />
               </Card.Body>
             </Card>
 
           </Col>
 
-          {/* ... (Kolom Kanan - Ringkasan Belanja tidak berubah) ... */}
+          {/* 4. Kolom Kanan: Ringkasan Belanja (SAMA) */}
           <Col lg={4}>
             <Card className="shadow-sm border-0 rounded-3 sticky-top" style={{ top: '100px' }}>
               <Card.Body className="p-4">
@@ -422,7 +401,7 @@ export default function PembayaranPage() {
                   variant="primary" size="lg" 
                   className="w-100 fw-bold mt-2" 
                   onClick={handleBayar}
-                  disabled={isPlacingOrder || items.length === 0}
+                  disabled={isPlacingOrder || items.length === 0 || loading}
                 >
                   {isPlacingOrder ? (
                     <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
@@ -434,7 +413,7 @@ export default function PembayaranPage() {
         </Row>
       </Container>
 
-      {/* === MODIFIKASI: Modal Ubah Alamat (Versi Google Maps) === */}
+      {/* Modal Ubah Alamat (SAMA) */}
       <Modal show={showAddressModal} onHide={handleCloseAddressModal} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Ubah Alamat Pengiriman</Modal.Title>
@@ -455,10 +434,8 @@ export default function PembayaranPage() {
                 className="mb-2"
               />
             </Form.Group>
-
             {!isLoaded && !loadError && <p className="text-muted small">Memuat peta...</p>}
             {loadError && <Alert variant="danger" className="small py-2">Error memuat Google Maps. Pastikan API Key Anda benar.</Alert>}
-            
             {isLoaded && (
               <div className="maps-container">
                 <InputGroup className="mb-2 shadow-sm">
@@ -474,24 +451,13 @@ export default function PembayaranPage() {
                     />
                   </Autocomplete>
                 </InputGroup>
-
                 <GoogleMap
-                  mapContainerStyle={{
-                    width: '100%',
-                    height: '250px',
-                    borderRadius: '8px'
-                  }}
+                  mapContainerStyle={{ width: '100%', height: '250px', borderRadius: '8px' }}
                   center={mapCenter}
                   zoom={10}
                   onLoad={onMapLoad}
                 >
-                  <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -100%)',
-                    zIndex: 1
-                  }}>
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -100%)', zIndex: 1 }}>
                     <MapPin size={32} color="red" />
                   </div>
                 </GoogleMap>
@@ -516,7 +482,6 @@ export default function PembayaranPage() {
           </Button>
         </Modal.Footer>
       </Modal>
-      {/* ======================================================== */}
 
     </div>
   );
