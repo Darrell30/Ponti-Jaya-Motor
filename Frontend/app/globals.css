@@ -69,6 +69,20 @@ a {
   font-size: 1.2rem;
   transition: opacity 0.2s;
 }
+
+/* === INI ADALAH PERBAIKANNYA === */
+/* Menyamakan ukuran & alignment <img> dengan <i> */
+.btn-icon-circle img {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: block; 
+  
+  /* --- PERBAIKAN MANUAL ALIGNMENT --- */
+  position: relative; /* Izinkan pergeseran */
+  top: 1px;          /* Dorong 1px ke bawah agar sejajar */
+}
+/* === AKHIR PERBAIKAN === */
+
 .btn-icon-circle:hover {
   color: white;
   opacity: 0.8;
@@ -147,7 +161,7 @@ a {
 /* Kustom Gutter Sesuai Figma (20px) */
 /* Digunakan untuk Row di dalam konten halaman */
 .g-custom-20 {
-  --bs-gutter-x: 20px; /* <-- TYPO SUDAH DIPERBAIKI (dari 2f0px) */
+  --bs-gutter-x: 20px; 
   --bs-gutter-y: 20px; /* Jarak vertikal */
 }
 
@@ -528,4 +542,47 @@ a {
     top: -30px; /* Tarik ke atas di samping ikon */
     color: #212529; /* Pastikan label terlihat */
   }
+}
+
+/* ================================== */
+/* === FIX AUTOCOMPLETE DI DALAM MODAL === */
+/* ================================== */
+
+/* .pac-container adalah class CSS yang 
+  digunakan Google untuk kotak saran alamat.
+  Kita paksa z-index-nya agar paling atas.
+*/
+.pac-container {
+    z-index: 9999 !important;
+
+    /* --- TAMBAHAN BARU UNTUK FIX TEKS TERPOTONG --- */
+    
+    /* 1. Atur lebar minimum agar box lebih lebar dari input */
+    /* Sesuaikan angka 400px ini jika kurang lebar */
+    min-width: 400px !important; 
+    
+    /* 2. Biarkan box tumbuh otomatis jika alamatnya panjang */
+    width: auto !important; 
+}
+
+/* .pac-item adalah setiap baris saran di dalam box */
+.pac-item {
+    /* 3. Izinkan teks untuk pindah ke baris baru (wrap) */
+    white-space: normal !important; 
+    
+    /* 4. Hapus pemotongan teks "..." */
+    text-overflow: unset !important;
+    overflow: visible !important;
+    
+    /* 5. Beri sedikit ruang agar tidak terlalu rapat */
+    line-height: 1.4;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+}
+
+/* Ini adalah teks alamat lengkap (baris kedua di saran) */
+.pac-item > span:nth-of-type(2) {
+    white-space: normal !important;
+    text-overflow: unset !important;
+    overflow: visible !important;
 }

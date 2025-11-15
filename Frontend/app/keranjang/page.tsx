@@ -1,10 +1,18 @@
 // app/keranjang/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form, Image, ListGroup, Modal, Spinner } from 'react-bootstrap';
+// === MODIFIKASI: Tambahan import ===
+import { useState, useEffect, useRef } from 'react';
+import { 
+  Container, Row, Col, Card, Button, Form, Image, ListGroup, Modal, Spinner,
+  InputGroup, Alert // <-- Baru
+} from 'react-bootstrap';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+// === BARU: Import untuk Google Maps ===
+import { Home as HomeIcon, MapPin } from 'lucide-react';
+import { useJsApiLoader, GoogleMap, Autocomplete } from '@react-google-maps/api';
+// ===================================
 
 interface CartItem {
   _id: string; 
@@ -16,6 +24,12 @@ interface CartItem {
   itemType: 'Sparepart' | 'Service';
 }
 
+// === BARU: Konstanta untuk Google Maps ===
+interface MapCenter { lat: number; lng: number; }
+const defaultCenter: MapCenter = { lat: -6.2088, lng: 106.8456 }; // Default: Jakarta
+const libraries: ("places")[] = ['places'];
+// ===================================
+
 export default function KeranjangPage() {
   const router = useRouter();
 
@@ -26,12 +40,29 @@ export default function KeranjangPage() {
 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  const [address, setAddress] = useState("Memuat alamat...");
-  const [tempAddress, setTempAddress] = useState("");
+  // === MODIFIKASI: State untuk Alamat & Modal ===
+  const [address, setAddress] = useState("Memuat alamat..."); // State utama untuk alamat
+  const [tempAddress, setTempAddress] = useState(""); // State untuk form di dalam modal
   const [showAddressModal, setShowAddressModal] = useState(false);
+  // ===========================================
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  // === BARU: State untuk Google Maps & Modal ===
+  const [isSaving, setIsSaving] = useState(false);
+  const [modalMessage, setModalMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [mapCenter, setMapCenter] = useState<MapCenter>(defaultCenter);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  // ===========================================
+
+  // === BARU: Loader Google Maps API ===
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string,
+    libraries: libraries,
+  });
+  // ====================================
 
   // Ambil UserID dan Alamat Profil
   useEffect(() => {
@@ -62,11 +93,11 @@ export default function KeranjangPage() {
       if (data.success && data.data.alamat) {
         setAddress(data.data.alamat); // Set alamat dari DB
       } else {
-        setAddress("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat");
+        setAddress("Alamat belum diatur"); // Fallback
       }
     } catch (err) {
       console.error("Gagal fetch profil:", err);
-      setAddress("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat");
+      setAddress("Gagal memuat alamat"); // Fallback
     }
   };
 
@@ -88,7 +119,7 @@ export default function KeranjangPage() {
     }
   };
 
-  // Fungsi: Update Kuantitas
+  // ... (Fungsi handleUpdateQuantity tidak berubah) ...
   const handleUpdateQuantity = async (cartItemId: string, newQuantity: number) => {
     if (!userId || newQuantity < 1) return; 
     setCartItems(currentItems =>
@@ -111,7 +142,7 @@ export default function KeranjangPage() {
     }
   };
 
-  // Fungsi: Hapus Item
+  // ... (Fungsi handleRemoveItem tidak berubah) ...
   const handleRemoveItem = async (cartItemId: string) => {
     if (!userId) return;
     setCartItems(currentItems => currentItems.filter(item => item._id !== cartItemId));
@@ -135,7 +166,7 @@ export default function KeranjangPage() {
     }
   };
 
-  // Fungsi-fungsi Modal Hapus
+  // ... (Fungsi-fungsi Modal Hapus tidak berubah) ...
   const handleShowDeleteModal = (cartItemId: string) => {
     setItemToDelete(cartItemId);
     setShowDeleteModal(true);
@@ -149,7 +180,7 @@ export default function KeranjangPage() {
     handleCloseDeleteModal();
   };
 
-  // Fungsi Select
+  // ... (Fungsi Select tidak berubah) ...
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       const allItemIds = cartItems.map(item => item._id);
@@ -165,15 +196,114 @@ export default function KeranjangPage() {
     setSelectedItems(newSelected);
   };
 
-  // Handlers Modal Alamat (Modal simpel ini TIDAK berubah)
+  // === BARU: Fungsi Helper Google Maps ===
+  const geocodeAddress = (addressString: string) => {
+    if (!isLoaded) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ 'address': addressString }, (results, status) => {
+      if (status === 'OK' && results && results[0]) {
+        const location = results[0].geometry.location;
+        const newCenter = { lat: location.lat(), lng: location.lng() };
+        setMapCenter(newCenter);
+        map?.panTo(newCenter);
+        map?.setZoom(15);
+      } else {
+        setMapCenter(defaultCenter);
+        map?.panTo(defaultCenter);
+      }
+    });
+  };
+  const onMapLoad = (mapInstance: google.maps.Map) => setMap(mapInstance);
+  const onAutocompleteLoad = (autocompleteInstance: google.maps.places.Autocomplete) => {
+    autocompleteRef.current = autocompleteInstance;
+  };
+  const onPlaceChanged = () => {
+    if (autocompleteRef.current) {
+      const place = autocompleteRef.current.getPlace();
+      if (!place || !place.geometry || !place.geometry.location) {
+        setModalMessage({ type: 'error', text: 'Harap pilih alamat dari daftar saran yang muncul.' });
+        return;
+      }
+      if(modalMessage?.type === 'error') setModalMessage(null);
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      setTempAddress(place.formatted_address || ""); // <-- Update tempAddress
+      setMapCenter({ lat, lng });
+      map?.panTo({ lat, lng });
+      map?.setZoom(15);
+    }
+  };
+  // =======================================
+
+  // === MODIFIKASI: Handlers Modal Alamat ===
   const handleOpenAddressModal = () => {
-    setTempAddress(address); 
+    setTempAddress(address); // Set form state dari state utama
+    setModalMessage(null);
+    setIsSaving(false);
+    
+    // Geocode alamat saat ini ketika modal dibuka
+    if (isLoaded) {
+      if (address && address !== "Memuat alamat..." && address !== "Alamat belum diatur") {
+        geocodeAddress(address);
+      } else {
+        setMapCenter(defaultCenter);
+        map?.panTo(defaultCenter);
+      }
+    }
     setShowAddressModal(true);
   };
-  const handleSaveAddress = () => {
-    setAddress(tempAddress); 
-    setShowAddressModal(false);
+
+  const handleCloseAddressModal = () => setShowAddressModal(false);
+
+  const handleSaveAddress = async () => {
+    if (!userId) {
+      setModalMessage({ type: 'error', text: 'User ID tidak ditemukan. Harap login ulang.' });
+      return;
+    }
+    
+    setIsSaving(true);
+    setModalMessage(null);
+    
+    try {
+      // Panggil API untuk update profil HANYA dengan alamat
+      const response = await fetch('http://localhost:5000/api/users/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          alamat: tempAddress // Kirim alamat dari form (tempAddress)
+        })
+      });
+      
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Gagal menyimpan alamat');
+      }
+      
+      // Jika sukses, update state 'address' utama di halaman keranjang
+      setAddress(tempAddress);
+      
+      // Update juga localStorage
+      const userInfoString = localStorage.getItem("userInfo");
+      if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        userInfo.alamat = tempAddress;
+        localStorage.setItem("userInfo", JSON.stringify(userInfo));
+      }
+
+      setModalMessage({ type: 'success', text: 'Alamat berhasil disimpan!' });
+      
+      setTimeout(() => {
+        handleCloseAddressModal();
+      }, 1000);
+
+    } catch (error: any) {
+      setModalMessage({ type: 'error', text: error.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
+  // =========================================
 
   // Fungsi Beli Sekarang
   const handleBeliSekarang = () => {
@@ -200,6 +330,7 @@ export default function KeranjangPage() {
       <Container>
         <h1 className="fw-bold text-dark mb-4">Keranjang</h1>
         <Row className="g-custom-20">
+          {/* ... (Kolom Kiri - Daftar Item tidak berubah) ... */}
           <Col lg={8}>
             <Card className="shadow-sm border-0 rounded-3">
               <Card.Header className="bg-white border-0 py-3">
@@ -277,6 +408,7 @@ export default function KeranjangPage() {
               )}
             </Card>
           </Col>
+          {/* ... (Kolom Kanan - Ringkasan Belanja tidak berubah) ... */}
           <Col lg={4}>
             <Card className="shadow-sm border-0 rounded-3 sticky-top" style={{ top: '100px' }}>
               <Card.Body className="p-4">
@@ -315,37 +447,92 @@ export default function KeranjangPage() {
         </Row>
       </Container>
 
-      {/* Modal Ubah Alamat (Simpel) */}
-      <Modal show={showAddressModal} onHide={() => setShowAddressModal(false)} centered>
+      {/* === MODIFIKASI: Modal Ubah Alamat (Versi Google Maps) === */}
+      <Modal show={showAddressModal} onHide={handleCloseAddressModal} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Ubah Alamat Pengiriman</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group controlId="formAlamat">
-              <Form.Label className="fw-bold text-secondary small">Alamat Lengkap</Form.Label>
+            <Form.Group className="mb-3">
+              <Form.Label className="small fw-bold text-muted d-flex align-items-center gap-2">
+                <HomeIcon size={16} /> Alamat Pengiriman
+              </Form.Label>
               <Form.Control 
                 as="textarea" 
-                rows={4} 
-                value={tempAddress}
-                onChange={(e) => setTempAddress(e.target.value)}
-                placeholder="Contoh: Jl. Sudirman No. 1, Jakarta Pusat"
-                className="shadow-none"
+                rows={2} 
+                placeholder="Masukkan alamat lengkap Anda..." 
+                value={tempAddress} 
+                onChange={(e) => setTempAddress(e.target.value)} 
+                disabled={isSaving}
+                className="mb-2"
               />
             </Form.Group>
+
+            {!isLoaded && !loadError && <p className="text-muted small">Memuat peta...</p>}
+            {loadError && <Alert variant="danger" className="small py-2">Error memuat Google Maps. Pastikan API Key Anda benar.</Alert>}
+            
+            {isLoaded && (
+              <div className="maps-container">
+                <InputGroup className="mb-2 shadow-sm">
+                  <InputGroup.Text><MapPin size={16} /></InputGroup.Text>
+                  <Autocomplete
+                    onLoad={onAutocompleteLoad}
+                    onPlaceChanged={onPlaceChanged}
+                  >
+                    <Form.Control
+                      type="text"
+                      placeholder="Cari alamat atau nama tempat..."
+                      className="shadow-none"
+                    />
+                  </Autocomplete>
+                </InputGroup>
+
+                <GoogleMap
+                  mapContainerStyle={{
+                    width: '100%',
+                    height: '250px',
+                    borderRadius: '8px'
+                  }}
+                  center={mapCenter}
+                  zoom={10}
+                  onLoad={onMapLoad}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -100%)',
+                    zIndex: 1
+                  }}>
+                    <MapPin size={32} color="red" />
+                  </div>
+                </GoogleMap>
+              </div>
+            )}
           </Form>
+          {modalMessage && (
+            <Alert 
+              variant={modalMessage.type === 'error' ? 'danger' : 'success'} 
+              className="small py-2 mt-3"
+            >
+              {modalMessage.text}
+            </Alert>
+          )}
         </Modal.Body>
-        <Modal.Footer className="border-0">
-          <Button variant="outline-secondary" onClick={() => setShowAddressModal(false)}>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={handleCloseAddressModal} disabled={isSaving}>
             Batal
           </Button>
-          <Button variant="primary" onClick={handleSaveAddress} className="fw-bold">
-            Simpan Alamat
+          <Button variant="primary" onClick={handleSaveAddress} disabled={isSaving || !isLoaded} className="fw-bold">
+            {isSaving ? <Spinner as="span" size="sm" /> : "Simpan Alamat"}
           </Button>
         </Modal.Footer>
       </Modal>
+      {/* ======================================================== */}
 
-      {/* Modal Konfirmasi Hapus */}
+
+      {/* ... (Modal Konfirmasi Hapus tidak berubah) ... */}
       <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Konfirmasi Hapus</Modal.Title>

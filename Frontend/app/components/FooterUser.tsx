@@ -1,7 +1,7 @@
 // app/components/FooterUser.tsx
 'use client';
 
-import { Container, Row, Col, Nav, Button } from 'react-bootstrap';
+import { Container, Row, Col, Nav } from 'react-bootstrap';
 import Link from 'next/link';
 
 function FooterUser() {
@@ -13,20 +13,57 @@ function FooterUser() {
           {/* Kolom Kiri: Social Media & Copyright */}
           <Col md={6}>
             <h5 className="mb-3">Temui kami juga di:</h5>
+            
             <div className="mb-3">
-              <a href="#" className="btn-icon-circle bg-primary me-2">
-                <i className="bi bi-shop"></i>
+              {/* 1. Tokopedia (<img>) */}
+              <a 
+                href="#" 
+                className="btn-icon-circle bg-primary me-2" 
+                title="Tokopedia"
+              >
+                <img 
+                  src="/images/icons/tokopedia.svg" 
+                  alt="Tokopedia" 
+                />
               </a>
-              <a href="#" className="btn-icon-circle bg-primary me-2">
-                <i className="bi bi-bag-fill"></i>
+              
+              {/* 2. Shopee (<img>) */}
+              <a 
+                href="#" 
+                className="btn-icon-circle bg-primary me-2" 
+                title="Shopee"
+              >
+                <img 
+                  src="/images/icons/shopee.svg" 
+                  alt="Shopee" 
+                />
               </a>
-              <a href="#" className="btn-icon-circle bg-success me-2">
-                <i className="bi bi-whatsapp"></i>
+              
+              {/* 3. Instagram (DIUBAH ke <img>) */}
+              <a 
+                href="#" 
+                className="btn-icon-circle bg-primary me-2" 
+                title="Instagram"
+              >
+                <img 
+                  src="/images/icons/instagram.svg" 
+                  alt="Instagram" 
+                />
               </a>
-              <a href="#" className="btn-icon-circle bg-success me-2">
-                <i className="bi bi-whatsapp"></i>
+              
+              {/* 4. WhatsApp (DIUBAH ke <img>) */}
+              <a 
+                href="https://wa.me/6281297575567" 
+                className="btn-icon-circle bg-primary me-2" 
+                title="WhatsApp"
+              >
+                <img 
+                  src="/images/icons/whatsapp.svg" 
+                  alt="WhatsApp" 
+                />
               </a>
             </div>
+
             <p className="text-white-50 small">
               Copyright © 2025 Ponti Jaya Motor. All Rights Reserved
             </p>
@@ -40,11 +77,9 @@ function FooterUser() {
               <Link href="/produk" className="nav-link text-white px-2">Sparepart</Link>
               <Link href="/#hubungi" className="nav-link text-white px-2">Hubungi Kami</Link>
               
-              {/* --- INI PERUBAHANNYA --- */}
               <Link href="/logout" className="nav-link text-danger fw-bold ps-3">
                 Keluar
               </Link>
-              {/* --- AKHIR PERUBAHAN --- */}
             </Nav>
           </Col>
 
