@@ -15,7 +15,7 @@ const User = require('./models/User');
 const Otp = require('./models/Otp'); 
 const Cart = require('./models/Cart'); 
 const StoreConfig = require('./models/StoreConfig');
-const Order = require('./models/Order'); // <-- Impor Order
+const Order = require('./models/Order');
 
 // Variabel Lingkungan
 const PORT = process.env.PORT || 3000;
@@ -128,14 +128,10 @@ const server = http.createServer(async (req, res) => {
         console.log(`[0] Menerima request DELETE (Jalur Khusus) untuk ID: ${id}`);
         
         try {
-            // LANGKAH 1: Cari produknya dulu di DB
             const productToDelete = await Sparepart.findById(id);
-            
             if (!productToDelete) {
                 return sendResponse(res, 404, { success: false, message: 'Produk tidak ditemukan' });
             }
-
-            // LANGKAH 2: Hapus gambar di Cloudinary
             const public_id = getPublicIdFromUrl(productToDelete.imageUrl);
             if (public_id) {
                 try {
@@ -147,13 +143,9 @@ const server = http.createServer(async (req, res) => {
             } else {
                 console.warn(`[Cloudinary] Tidak bisa mendapatkan Public ID dari URL: ${productToDelete.imageUrl}`);
             }
-
-            // LANGKAH 3: Hapus produk dari MongoDB
             await Sparepart.findByIdAndDelete(id);
-
             console.log(`[0] Produk berhasil dihapus dari DB: ${id}`);
             return sendResponse(res, 200, { success: true, message: 'Produk dan gambar berhasil dihapus' });
-
         } catch (error) {
             console.error('[0] ERROR DELETE:', error);
             return sendResponse(res, 500, { success: false, message: 'Gagal menghapus produk' });
@@ -183,7 +175,6 @@ const server = http.createServer(async (req, res) => {
                 { isStoreOpen: body.isStoreOpen }, 
                 { new: true, upsert: true } 
             );
-
             console.log(`[Store Status] Toko sekarang: ${config.isStoreOpen ? 'BUKA' : 'TUTUP'}`);
             return sendResponse(res, 200, { success: true, isStoreOpen: config.isStoreOpen });
         } catch (error) {
@@ -195,7 +186,6 @@ const server = http.createServer(async (req, res) => {
     //Routing Sparepart 
     else if (path.startsWith('/api/spareparts')) {
         
-        // GET /api/spareparts (Get All)
         if (path === '/api/spareparts' && method === 'GET') {
             console.log('[0] Menerima request GET /api/spareparts...'); 
             try {
@@ -206,7 +196,6 @@ const server = http.createServer(async (req, res) => {
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving spareparts' });
             }
         } 
-        // POST /api/spareparts (Create)
         else if (path === '/api/spareparts' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
@@ -217,7 +206,6 @@ const server = http.createServer(async (req, res) => {
                 sendResponse(res, 400, { success: false, message: message });
             }
         } 
-        // PUT /api/spareparts/:id (Update)
         else if (method === 'PUT' && path.split('/').length === 4) {
             console.log('[0] Menerima request PUT /api/spareparts/:id...');
             try {
@@ -241,7 +229,6 @@ const server = http.createServer(async (req, res) => {
                 sendResponse(res, 400, { success: false, message: message });
             }
         }
-        // GET /api/spareparts/:id (Get by ID)
         else if (method === 'GET' && path.split('/').length === 4) {
             const id = path.split('/')[3];
             try {
@@ -258,7 +245,7 @@ const server = http.createServer(async (req, res) => {
     
     // --- Routing Jasa (Services)
     else if (path.startsWith('/api/services')) {
-        // GET /api/services (Get All)
+        
         if (path === '/api/services' && method === 'GET') {
             try {
                 const services = await Service.find({});
@@ -268,7 +255,6 @@ const server = http.createServer(async (req, res) => {
                 sendResponse(res, 500, { success: false, message: 'Server error retrieving services' });
             }
         } 
-        // POST /api/services (Create)
         else if (path === '/api/services' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
@@ -279,7 +265,6 @@ const server = http.createServer(async (req, res) => {
                 sendResponse(res, 400, { success: false, message: message });
             }
         }
-        // GET /api/services/:id (Get by ID)
         else if (method === 'GET' && path.split('/').length === 4) {
             const id = path.split('/')[3];
             try {
@@ -448,6 +433,64 @@ const server = http.createServer(async (req, res) => {
         }
     }
     
+    // --- [RUTE BARU 1] GET PROFIL USER ---
+    else if (path === '/api/users/profile' && method === 'GET') {
+        console.log('[0] Menerima request GET /api/users/profile...');
+        try {
+            const userId = parsedUrl.searchParams.get('userId');
+            if (!userId) {
+                return sendResponse(res, 400, { success: false, message: 'userId query parameter wajib diisi' });
+            }
+
+            const user = await User.findById(userId).select('-password'); // Ambil semua KECUALI password
+            if (!user) {
+                return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
+            }
+            
+            sendResponse(res, 200, { success: true, data: user });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di GET /api/users/profile:', error);
+            sendResponse(res, 500, { success: false, message: 'Server error saat mengambil profil' });
+        }
+    }
+
+    // --- [RUTE BARU 2] PUT PROFIL USER ---
+    else if (path === '/api/users/profile' && method === 'PUT') {
+        console.log('[0] Menerima request PUT /api/users/profile...');
+        try {
+            const body = await getRequestBody(req);
+            const { userId, username, telpon, alamat } = body;
+
+            if (!userId) {
+                return sendResponse(res, 400, { success: false, message: 'userId wajib diisi' });
+            }
+            
+            // Cek jika username baru sudah dipakai user lain
+            const existingUser = await User.findOne({ username: username, _id: { $ne: userId } });
+            if (existingUser) {
+                return sendResponse(res, 400, { success: false, message: 'Username tersebut sudah digunakan oleh akun lain' });
+            }
+
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                { username, telpon, alamat },
+                { new: true, runValidators: true } // Kirim balik data baru & jalankan validator
+            ).select('-password');
+
+            if (!updatedUser) {
+                return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
+            }
+            
+            console.log(`[0] Profil user ${userId} berhasil di-update`);
+            sendResponse(res, 200, { success: true, message: 'Profil berhasil disimpan', data: updatedUser });
+
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di PUT /api/users/profile:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal update profil' });
+        }
+    }
+    
     // --- RUTE GET ALL USERS ---
     else if (path === '/api/users' && method === 'GET') {
         console.log('[0] Menerima request GET /api/users...');
@@ -581,8 +624,8 @@ const server = http.createServer(async (req, res) => {
         console.log('[0] Menerima request GET /api/orders/all (ADMIN)...');
         try {
             const orders = await Order.find({})
-                .populate('user', 'username email') // Mengambil data user (username & email saja)
-                .sort({ createdAt: -1 }); // Urutkan dari yang terbaru
+                .populate('user', 'username email') 
+                .sort({ createdAt: -1 }); 
 
             sendResponse(res, 200, { success: true, data: orders });
         } catch (error) {
@@ -604,9 +647,9 @@ const server = http.createServer(async (req, res) => {
             
             const updatedOrder = await Order.findByIdAndUpdate(
                 orderId,
-                { status: newStatus }, // Hanya update status
-                { new: true } // Kirim balik dokumen yang sudah di-update
-            ).populate('user', 'username email'); // Kirim balik juga data user
+                { status: newStatus }, 
+                { new: true } 
+            ).populate('user', 'username email'); 
 
             if (!updatedOrder) {
                 return sendResponse(res, 404, { success: false, message: 'Pesanan tidak ditemukan' });
@@ -670,6 +713,75 @@ const server = http.createServer(async (req, res) => {
         } catch (error) {
             console.error('[0] CRITICAL ERROR di GET /api/orders:', error);
             sendResponse(res, 500, { success: false, message: 'Server error saat mengambil pesanan' });
+        }
+    }
+    
+    // --- RUTE STATISTIK DASHBOARD ADMIN ---
+    else if (path === '/api/admin/dashboard-stats' && method === 'GET') {
+        console.log('[0] Menerima request GET /api/admin/dashboard-stats...');
+        try {
+            const [
+                totalRevenueData,
+                totalSoldItemsData,
+                totalInCartsData,
+                lowStockProducts,
+                topSellingProducts
+            ] = await Promise.all([
+                Order.aggregate([
+                    { $match: { status: 'Selesai' } },
+                    { $group: { _id: null, total: { $sum: "$totalAmount" } } }
+                ]),
+                Order.aggregate([
+                    { $match: { status: 'Selesai' } },
+                    { $unwind: '$items' },
+                    { $group: { _id: null, total: { $sum: "$items.quantity" } } }
+                ]),
+                Cart.aggregate([
+                    { $unwind: '$items' },
+                    { $group: { _id: null, total: { $sum: "$items.quantity" } } }
+                ]),
+                Sparepart.find({ stok: { $lt: 10 } }).sort({ stok: 1 }),
+                Order.aggregate([
+                    { $match: { status: 'Selesai' } },
+                    { $unwind: '$items' },
+                    { $group: { 
+                        _id: '$items.productId',
+                        totalSold: { $sum: '$items.quantity' } 
+                    }},
+                    { $sort: { totalSold: -1 } },
+                    { $limit: 6 },
+                    { $addFields: { "productIdObj": { "$toObjectId": "$_id" } } },
+                    { $lookup: {
+                        from: 'Sparepart', 
+                        localField: 'productIdObj',
+                        foreignField: '_id',
+                        as: 'productInfo'
+                    }},
+                    { $unwind: '$productInfo' },
+                    { $project: {
+                        _id: 0,
+                        nama: '$productInfo.nama',
+                        imageUrl: '$productInfo.imageUrl',
+                        totalSold: '$totalSold'
+                    }}
+                ])
+            ]);
+            const stats = {
+                totalRevenue: totalRevenueData[0]?.total || 0,
+                totalSoldItems: totalSoldItemsData[0]?.total || 0,
+                totalInCarts: totalInCartsData[0]?.total || 0
+            };
+            sendResponse(res, 200, {
+                success: true,
+                data: {
+                    stats,
+                    lowStockProducts,
+                    topSellingProducts
+                }
+            });
+        } catch (error) {
+            console.error('[0] CRITICAL ERROR di GET /api/admin/dashboard-stats:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal mengambil statistik dashboard' });
         }
     }
     

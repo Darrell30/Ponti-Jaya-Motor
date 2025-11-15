@@ -1,7 +1,6 @@
 // app/pembayaran/page.tsx
 'use client';
 
-// Import hooks dan komponen
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, Image, Modal, Alert, Spinner } from 'react-bootstrap';
 import Link from 'next/link';
@@ -11,8 +10,8 @@ import { Truck } from 'lucide-react';
 interface CheckoutItem {
   _id: string; 
   productId: string; 
-  name?: string;  
-  nama?: string;  
+  name?: string; 
+  nama?: string; 
   harga: number; 
   image: string;
   quantity: number;
@@ -24,16 +23,16 @@ export default function PembayaranPage() {
   const [items, setItems] = useState<CheckoutItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false); 
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [address, setAddress] = useState("Memuat alamat...");
-  const [tempAddress, setTempAddress] = useState(address);
+  const [tempAddress, setTempAddress] = useState("");
 
   const [paymentMethod, setPaymentMethod] = useState(''); // 'qris' or 'cod'
   const [error, setError] = useState(''); 
 
-  // ... (useEffect untuk ambil data SAMA, tidak berubah) ...
+  // Ambil data User, Alamat, dan Item
   useEffect(() => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
@@ -41,35 +40,53 @@ export default function PembayaranPage() {
       return;
     }
     const userInfo = JSON.parse(userInfoString);
-    setUserId(userInfo.userId);
+    const currentUserId = userInfo.userId;
+    setUserId(currentUserId);
 
+    // Ambil Alamat
     const storedAddress = localStorage.getItem("shippingAddress");
     if (storedAddress) {
       setAddress(storedAddress);
+      localStorage.removeItem("shippingAddress"); 
     } else {
-      setAddress("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat, 11730");
+      fetchProfile(currentUserId);
     }
 
+    // Ambil Item
     const itemsString = localStorage.getItem("checkoutItems");
     if (!itemsString) {
       alert("Tidak ada item untuk di-checkout.");
       router.push('/keranjang');
       return;
     }
-    
     const checkoutItems: CheckoutItem[] = JSON.parse(itemsString);
     if (checkoutItems.length === 0) {
       alert("Tidak ada item untuk di-checkout.");
       router.push('/keranjang');
       return;
     }
-
     setItems(checkoutItems);
     setLoading(false);
 
   }, [router]);
 
-  // ... (Handlers Alamat SAMA, tidak berubah) ...
+  // Fungsi: Mengambil profil (alamat) user
+  const fetchProfile = async (currentUserId: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/users/profile?userId=${currentUserId}`);
+      const data = await response.json();
+      if (data.success && data.data.alamat) {
+        setAddress(data.data.alamat); 
+      } else {
+        setAddress("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat");
+      }
+    } catch (err) {
+      console.error("Gagal fetch profil:", err);
+      setAddress("Jl. Kamal Raya Outer Ring Road, Cengkareng, Jakarta Barat");
+    }
+  };
+
+  // Handlers Alamat (Modal Simpel)
   const handleOpenAddressModal = () => {
     setTempAddress(address);
     setShowAddressModal(true);
@@ -79,7 +96,7 @@ export default function PembayaranPage() {
     setShowAddressModal(false);
   };
 
-  // ... (Fungsi +/-/Hapus SAMA, tidak berubah) ...
+  // Fungsi +/-/Hapus (Lokal)
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     if (newQuantity < 1) newQuantity = 1; 
     setItems(currentItems =>
@@ -94,36 +111,25 @@ export default function PembayaranPage() {
     );
   };
 
-  // ... (Kalkulasi Total SAMA, tidak berubah) ...
+  // Kalkulasi Total
   const subtotal = items.reduce((acc, item) => acc + (item.harga * item.quantity), 0);
   const shippingCost = 15000;
   const grandTotal = subtotal + shippingCost;
 
-  // === FUNGSI UTAMA: TOMBOL BAYAR ===
+  // Fungsi: Bayar Sekarang
   const handleBayar = async () => {
-    if (!paymentMethod) {
-      setError("Harap pilih metode pembayaran terlebih dahulu.");
-      return;
-    }
-    if (items.length === 0) {
-      setError("Tidak ada item di checkout Anda.");
-      return;
-    }
-    if (!userId) {
-      setError("Sesi Anda berakhir. Harap login kembali.");
-      return;
-    }
+    if (!paymentMethod) { setError("Harap pilih metode pembayaran terlebih dahulu."); return; }
+    if (items.length === 0) { setError("Tidak ada item di checkout Anda."); return; }
+    if (!userId) { setError("Sesi Anda berakhir. Harap login kembali."); return; }
 
     setError("");
     setIsPlacingOrder(true);
 
-    // --- PERBAIKAN 1 DI SINI ---
-    // Ubah 'COD' (uppercase) menjadi 'cod' (lowercase)
     const orderStatus = paymentMethod === 'cod' ? 'Diproses' : 'Menunggu Pembayaran';
 
     const orderData = {
       userId: userId,
-      items: items.map(item => ({ 
+      items: items.map(item => ({
         productId: item.productId,
         nama: item.nama || item.name, 
         harga: item.harga,
@@ -131,7 +137,7 @@ export default function PembayaranPage() {
         quantity: item.quantity
       })),
       shippingAddress: address,
-      paymentMethod: paymentMethod.toUpperCase(), // Ini tetap UPPERCASE untuk database
+      paymentMethod: paymentMethod.toUpperCase(),
       totalAmount: grandTotal,
       status: orderStatus
     };
@@ -142,17 +148,12 @@ export default function PembayaranPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
       });
-
       const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Gagal membuat pesanan');
-      }
+      if (!response.ok || !data.success) { throw new Error(data.message || 'Gagal membuat pesanan'); }
 
       localStorage.removeItem("checkoutItems");
       localStorage.setItem("showSuccessNotification", "Pesanan Sudah Berhasil Dibuat");
 
-      // --- PERBAIKAN 2 DI SINI ---
-      // Ubah 'COD' (uppercase) menjadi 'cod' (lowercase)
       if (paymentMethod === 'cod') {
         router.push('/pembelian');
       } else {
@@ -167,7 +168,6 @@ export default function PembayaranPage() {
 
 
   if (loading) {
-    // ... (Tampilan Loading SAMA) ...
     return (
       <div className="w-100 py-5 text-center" style={{ backgroundColor: '#E5E9F0', minHeight: '100vh' }}>
         <Spinner animation="border" />
@@ -185,14 +185,12 @@ export default function PembayaranPage() {
           
           <Col lg={8} className="d-flex flex-column gap-4">
             
-            {/* ... (KARTU ALAMAT SAMA) ... */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <h5 className="fw-bold text-dark mb-0">Alamat Pengiriman</h5>
                   <Button 
-                    variant="link" 
-                    size="sm" 
+                    variant="link" size="sm" 
                     className="p-0 text-decoration-none fw-bold"
                     onClick={handleOpenAddressModal}
                   >
@@ -205,7 +203,6 @@ export default function PembayaranPage() {
               </Card.Body>
             </Card>
 
-            {/* ... (KARTU PRODUK DIPESAN SAMA) ... */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Produk Dipesan</h5>
@@ -226,8 +223,7 @@ export default function PembayaranPage() {
                     </Col>
                     <Col xs="auto" className="d-flex align-items-center justify-content-end">
                       <Button 
-                        variant="link" 
-                        className="text-danger p-0 me-3"
+                        variant="link" className="text-danger p-0 me-3"
                         onClick={() => handleRemoveItem(item.productId)}
                         disabled={isPlacingOrder}
                       >
@@ -235,22 +231,16 @@ export default function PembayaranPage() {
                       </Button>
                       <div className="d-flex align-items-center">
                         <Button 
-                          variant="outline-secondary" 
-                          className="btn-quantity"
+                          variant="outline-secondary" className="btn-quantity"
                           onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}
                           disabled={isPlacingOrder}
-                        >
-                          -
-                        </Button>
+                        > - </Button>
                         <span className="quantity-display">{item.quantity}</span>
                         <Button 
-                          variant="outline-secondary" 
-                          className="btn-quantity"
+                          variant="outline-secondary" className="btn-quantity"
                           onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}
                           disabled={isPlacingOrder}
-                        >
-                          +
-                        </Button>
+                        > + </Button>
                       </div>
                     </Col>
                   </Row>
@@ -258,7 +248,6 @@ export default function PembayaranPage() {
               </Card.Body>
             </Card>
 
-            {/* ... (KARTU METODE PEMBAYARAN SAMA) ... */}
             <Card className="shadow-sm border-0 rounded-3 card-transaction">
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Metode Pembayaran</h5>
@@ -298,12 +287,10 @@ export default function PembayaranPage() {
 
           </Col>
 
-          {/* ... (Kolom Kanan / Ringkasan Belanja SAMA) ... */}
           <Col lg={4}>
             <Card className="shadow-sm border-0 rounded-3 sticky-top" style={{ top: '100px' }}>
               <Card.Body className="p-4">
                 <h5 className="fw-bold text-dark mb-3">Ringkasan Belanja</h5>
-                
                 <div className="d-flex justify-content-between mb-2">
                   <span className="text-secondary small">Subtotal ({items.length} Produk)</span>
                   <span className="fw-bold text-dark small">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</span>
@@ -312,37 +299,30 @@ export default function PembayaranPage() {
                   <span className="text-secondary small">Ongkos Kirim</span>
                   <span className="fw-bold text-dark small">{shippingCost.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</span>
                 </div>
-                
                 <hr className="my-3" />
-                
                 <div className="d-flex justify-content-between mb-3">
                   <span className="fw-bold text-dark fs-5">Total Bayar</span>
                   <span className="fw-bold text-primary fs-5">
                     {grandTotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
                   </span>
                 </div>
-
                 <Button 
-                  variant="primary" 
-                  size="lg" 
+                  variant="primary" size="lg" 
                   className="w-100 fw-bold mt-2" 
                   onClick={handleBayar}
                   disabled={isPlacingOrder || items.length === 0}
                 >
                   {isPlacingOrder ? (
                     <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                  ) : (
-                    'Bayar Sekarang'
-                  )}
+                  ) : ( 'Bayar Sekarang' )}
                 </Button>
               </Card.Body>
             </Card>
           </Col>
-
         </Row>
       </Container>
 
-      {/* ... (Modal Ubah Alamat SAMA) ... */}
+      {/* Modal Ubah Alamat (Simpel) */}
       <Modal show={showAddressModal} onHide={() => setShowAddressModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Ubah Alamat Pengiriman</Modal.Title>

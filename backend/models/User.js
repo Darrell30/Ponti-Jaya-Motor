@@ -17,16 +17,22 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Password wajib diisi']
     },
-
-    // ===================================
-    // === TAMBAHAN BARU UNTUK ROLE ===
-    // ===================================
     role: {
         type: String,
-        enum: ['user', 'admin'], // Hanya izinkan nilai 'user' atau 'admin'
-        default: 'user'          // OTOMATIS set 'user' untuk akun baru
+        enum: ['user', 'admin'],
+        default: 'user'
     },
-    // ===================================
+    
+    // --- TAMBAHAN BARU ---
+    telpon: {
+        type: String,
+        default: ''
+    },
+    alamat: {
+        type: String,
+        default: ''
+    },
+    // ---------------------
 
     createdAt: {
         type: Date,
