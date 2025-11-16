@@ -820,6 +820,78 @@ const server = http.createServer(async (req, res) => {
             sendResponse(res, 500, { success: false, message: 'Internal Server Error' });
         }
     }
+
+    // 1. KIRIM PESAN (POST)
+    else if (path === '/api/messages/send' && method === 'POST') {
+        try {
+            const Message = require('./models/Message'); // Pastikan path benar
+            const body = await getRequestBody(req);
+            const { senderId, senderName, receiverId, text, isFromAdmin } = body;
+
+            const newMessage = await Message.create({
+                senderId, senderName, receiverId, text, isFromAdmin
+            });
+            
+            sendResponse(res, 201, { success: true, data: newMessage });
+        } catch (error) {
+            console.error('Chat Error:', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal kirim pesan' });
+        }
+    }
+
+    // 2. AMBIL PESAN ANTARA ADMIN & USER (GET)
+    // Format URL: /api/messages/history?userId=xxxxx
+    else if (path === '/api/messages/history' && method === 'GET') {
+        try {
+            const Message = require('./models/Message');
+            const userId = parsedUrl.searchParams.get('userId'); // ID User lawan bicara
+            
+            if (!userId) return sendResponse(res, 400, { success: false, message: 'Butuh userId' });
+
+            // Ambil pesan dimana (sender=User AND receiver=Admin) ATAU (sender=Admin AND receiver=User)
+            const messages = await Message.find({
+                $or: [
+                    { senderId: userId, receiverId: 'admin' },
+                    { senderId: 'admin', receiverId: userId }
+                ]
+            }).sort({ createdAt: 1 }); // Urut dari yang terlama ke terbaru
+
+            sendResponse(res, 200, { success: true, data: messages });
+        } catch (error) {
+            sendResponse(res, 500, { success: false, message: 'Gagal ambil chat' });
+        }
+    }
+
+    // 3. (ADMIN ONLY) AMBIL DAFTAR USER YANG PERNAH CHAT (GET)
+    else if (path === '/api/messages/conversations' && method === 'GET') {
+        try {
+            const Message = require('./models/Message');
+            
+            // Cari semua pesan yang BUKAN dari admin (pesan masuk dari user)
+            // Kelompokkan berdasarkan senderId agar admin tau siapa aja yang chat
+            const senders = await Message.distinct('senderId', { isFromAdmin: false });
+            
+            // Kita butuh nama usernya juga. Cari info detail usernya.
+            // (Cara simpel: ambil pesan terakhir dari tiap sender untuk dapat namanya)
+            let conversations = [];
+            for (let uid of senders) {
+                const lastMsg = await Message.findOne({ senderId: uid }).sort({ createdAt: -1 });
+                if (lastMsg) {
+                    conversations.push({
+                        userId: uid,
+                        userName: lastMsg.senderName,
+                        lastMessage: lastMsg.text,
+                        lastTime: lastMsg.createdAt
+                    });
+                }
+            }
+
+            sendResponse(res, 200, { success: true, data: conversations });
+        } catch (error) {
+            console.error(error);
+            sendResponse(res, 500, { success: false, message: 'Gagal ambil daftar percakapan' });
+        }
+    }
     
     // --- Rute 404 ---
     else {

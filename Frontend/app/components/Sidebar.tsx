@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Package, ShoppingCart, LogOut, AlertTriangle, Users } from "lucide-react"; 
+import { Home, Package, ShoppingCart, LogOut, AlertTriangle, Users, MessageSquare } from "lucide-react"; 
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -56,13 +56,13 @@ export default function AdminSidebar() {
             </Link>
 
             <Link
-              href="/admin/pengguna"
+              href="/admin/Chat"
               className={`nav-link d-flex align-items-center gap-3 px-3 py-3 mb-2 fw-medium rounded-3 nav-link-custom ${
-                pathname === "/admin/pengguna" ? "active" : ""
+                pathname === "/admin/Chat" ? "active" : ""
               }`}
             >
-              <Users size={20} />
-              Pengguna
+              <MessageSquare size={20} />
+              Chat
             </Link>
 
             <button 
