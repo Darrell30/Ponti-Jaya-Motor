@@ -1,4 +1,3 @@
-// app/pembelian/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +5,14 @@ import { Container, Row, Col, Card, Button, Badge, Nav, Image, Modal, Spinner, A
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-// --- TIPE DATA (BARU, SESUAI SCHEMA) ---
+// Deklarasikan 'window.snap' agar TypeScript tidak error
+declare global {
+  interface Window {
+    snap: any;
+  }
+}
+
+// --- TIPE DATA ---
 interface OrderItem {
   _id: string; // ID dari sub-dokumen
   productId: string;
@@ -26,11 +32,7 @@ interface Order {
   items: OrderItem[];
 }
 
-// --- HAPUS DATA DUMMY (MOCK) ---
-// const mockOrders: Order[] = [ ... ];
-
 // === KOMPONEN PELACAK STATUS (STEPPER) ===
-// (Tidak ada perubahan di komponen ini)
 const OrderStatusTracker = ({ status }: { status: OrderStatus }) => {
   const steps = ['Diproses', 'Dikirim', 'Tiba', 'Selesai'];
   const statusMap: Record<OrderStatus, number> = {
@@ -77,48 +79,18 @@ const OrderStatusTracker = ({ status }: { status: OrderStatus }) => {
 export default function PembelianPage() {
   const router = useRouter();
   
-  // --- STATE BARU ---
+  // --- STATE ---
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('Semua');
-
-  // State untuk Notifikasi Sukses
   const [notification, setNotification] = useState<string | null>(null);
-  
-  // State untuk Modal Pelacak Status
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isRePaying, setIsRePaying] = useState(false); 
 
-  // --- EFEK 1: Ambil UserID dan cek Notifikasi ---
-  useEffect(() => {
-    // Cek info user dari login
-    const userInfoString = localStorage.getItem("userInfo"); 
-    if (userInfoString) {
-      const userInfo = JSON.parse(userInfoString);
-      setUserId(userInfo.userId); 
-    } else {
-      router.push('/login'); // Belum login, paksa ke halaman login
-    }
-
-    // Cek apakah ada notifikasi sukses dari halaman pembayaran
-    const notif = localStorage.getItem("showSuccessNotification");
-    if (notif) {
-      setNotification(notif);
-      // Hapus notifikasi agar tidak muncul lagi saat di-refresh
-      localStorage.removeItem("showSuccessNotification"); 
-    }
-  }, [router]);
-
-  // --- EFEK 2: Ambil Data Pesanan SETELAH UserID didapat ---
-  useEffect(() => {
-    if (userId) {
-      fetchOrders(userId);
-    }
-  }, [userId]); // Dijalankan setiap kali userId berubah
-
-  // --- FUNGSI BARU: Ambil data dari API ---
+  // --- FUNGSI: Ambil data dari API ---
   const fetchOrders = async (currentUserId: string) => {
     setLoading(true);
     setError(null);
@@ -136,20 +108,108 @@ export default function PembelianPage() {
     }
   };
 
-  // Fungsi untuk membuka modal
+  // --- EFEK 1: Ambil UserID ---
+  useEffect(() => {
+    const userInfoString = localStorage.getItem("userInfo"); 
+    if (userInfoString) {
+      const userInfo = JSON.parse(userInfoString);
+      setUserId(userInfo.userId); 
+    } else {
+      router.push('/login'); 
+    }
+  }, [router]);
+
+  // --- EFEK 2: Ambil Data Pesanan (Dengan Logika Delay Refresh) ---
+  useEffect(() => {
+    if (userId) {
+      // Cek apakah ada notifikasi sukses dari halaman pembayaran (trigger refresh)
+      const successNotif = localStorage.getItem("showSuccessNotification");
+      
+      const refreshData = () => {
+          fetchOrders(userId);
+          // Hapus notifikasi setelah fetch berhasil
+          if (successNotif) {
+              localStorage.removeItem("showSuccessNotification");
+              setNotification(successNotif); 
+          }
+      };
+
+      if (successNotif) {
+        // ** LOGIKA DELAY REFRESH **
+        // Tambahkan delay 1 detik untuk memberi waktu Midtrans Webhook memproses status.
+        setLoading(true);
+        const timer = setTimeout(refreshData, 1000); 
+        return () => clearTimeout(timer); // Cleanup timer saat unmount
+      } else {
+        refreshData(); // Panggil fetchOrders normal
+      }
+    }
+  }, [userId]); 
+
+  // --- FUNGSI BARU: Bayar Ulang (Memanggil Snap) ---
+  const handleBayarUlang = async (orderId: string, totalAmount: number) => {
+    if (isRePaying || !userId) return;
+    setIsRePaying(true);
+    setNotification(null);
+
+    try {
+        // 1. Panggil API backend untuk mendapatkan token (endpoint yang sama)
+        const response = await fetch('http://localhost:5000/api/orders/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                orderId: orderId, // Mengirim ID order yang sudah ada
+                userId: userId, 
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Gagal mendapatkan token pembayaran ulang');
+        }
+
+        const transactionToken = data.data.token;
+        
+        // 2. Tampilkan Pop-up Snap
+        window.snap.pay(transactionToken, {
+            onSuccess: function(result: any){
+                // ** PERBAIKAN: Gunakan localStorage untuk trigger refresh di halaman ini **
+                localStorage.setItem("showSuccessNotification", "✅ Pembayaran berhasil! Status akan segera diperbarui.");
+                window.location.reload(); // Paksa refresh halaman untuk trigger useEffect delay
+            },
+            onPending: function(result: any){
+                localStorage.setItem("showSuccessNotification", "⏳ Menunggu pembayaran. Selesaikan pembayaran di pop-up.");
+                fetchOrders(userId);
+            },
+            onError: function(result: any){
+                setNotification("❌ Pembayaran gagal. Silakan coba lagi.");
+                setIsRePaying(false);
+            },
+            onClose: function(){
+                setIsRePaying(false);
+            }
+        });
+
+    } catch (err: any) {
+        setNotification(`Error: ${err.message}`);
+        setIsRePaying(false);
+    }
+  };
+
+
+  // Fungsi untuk membuka/menutup modal (Tidak berubah)
   const handleShowStatus = (order: Order) => {
     setSelectedOrder(order);
     setShowStatusModal(true);
   };
-  // Fungsi untuk menutup modal
   const handleCloseStatus = () => setShowStatusModal(false);
 
-  // Logika filter (sekarang menggunakan state 'orders')
+  // Logika filter (Tidak berubah)
   const filteredOrders = activeTab === 'Semua' 
     ? orders 
     : orders.filter(order => order.status === activeTab);
 
-  // Helper (tidak berubah)
+  // Helper & Format (Tidak berubah)
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Menunggu Pembayaran': return 'warning';
@@ -161,8 +221,6 @@ export default function PembelianPage() {
       default: return 'secondary';
     }
   };
-
-  // Helper untuk format tanggal
   const formatTanggal = (tanggalISO: string) => {
     return new Date(tanggalISO).toLocaleDateString('id-ID', {
       day: 'numeric',
@@ -179,7 +237,7 @@ export default function PembelianPage() {
       <Container>
         <h2 className="fw-bold text-dark mb-4">Daftar Transaksi</h2>
 
-        {/* --- NOTIFIKASI SUKSES (BARU) --- */}
+        {/* --- NOTIFIKASI SUKSES --- */}
         {notification && (
           <Alert 
             variant="success" 
@@ -191,7 +249,7 @@ export default function PembelianPage() {
           </Alert>
         )}
 
-        {/* Filter Tabs (Tidak berubah) */}
+        {/* Filter Tabs */}
         <Nav variant="pills" className="mb-4 overflow-auto flex-nowrap pb-2" activeKey={activeTab}>
           {['Semua', 'Menunggu Pembayaran', 'Diproses', 'Dikirim', 'Tiba', 'Selesai', 'Dibatalkan'].map((tab) => (
             <Nav.Item key={tab}>
@@ -206,7 +264,7 @@ export default function PembelianPage() {
           ))}
         </Nav>
 
-        {/* --- TAMPILAN LOADING / ERROR (BARU) --- */}
+        {/* --- TAMPILAN LOADING / ERROR --- */}
         {loading && (
           <div className="text-center p-5">
             <Spinner animation="border" />
@@ -217,12 +275,11 @@ export default function PembelianPage() {
           <Alert variant="danger">Gagal memuat data: {error}</Alert>
         )}
 
-        {/* Daftar Pesanan (Sekarang dinamis) */}
+        {/* Daftar Pesanan */}
         <div className="d-flex flex-column gap-4">
           {!loading && !error && filteredOrders.length > 0 && (
             filteredOrders.map((order) => {
               const showTrackerButton = order.status === 'Diproses' || order.status === 'Dikirim' || order.status === 'Tiba';
-              // Format ID pesanan agar lebih pendek
               const shortOrderId = `...${order._id.slice(-6)}`;
 
               return (
@@ -266,18 +323,21 @@ export default function PembelianPage() {
                       </div>
                       
                       <div className="d-flex gap-2">
+                        {/* === MODIFIKASI: TOMBOL BAYAR SEKARANG === */}
                         {order.status === 'Menunggu Pembayaran' && (
                           <Button 
                             variant="primary" 
                             size="sm" 
                             className="fw-bold"
-                            // Arahkan ke halaman QRIS yang spesifik
-                            as={Link}
-                            href={`/pembayaran/qris?orderId=${order._id}&total=${order.totalAmount}`}
+                            onClick={() => handleBayarUlang(order._id, order.totalAmount)}
+                            disabled={isRePaying}
                           >
-                            Bayar Sekarang
+                            {isRePaying ? (
+                                <Spinner as="span" animation="border" size="sm" className="me-1" />
+                            ) : "Bayar Sekarang"}
                           </Button>
                         )}
+                        {/* ======================================= */}
                         
                         {showTrackerButton && (
                           <Button 
@@ -307,7 +367,7 @@ export default function PembelianPage() {
             })
           )}
           
-          {/* Tampilan Jika Kosong (Dinamis) */}
+          {/* Tampilan Jika Kosong */}
           {!loading && !error && filteredOrders.length === 0 && (
             <div className="text-center py-5">
               <div className="mb-3">
@@ -325,7 +385,7 @@ export default function PembelianPage() {
         </div>
       </Container>
 
-      {/* Modal Lacak Status (Tidak berubah, hanya data_id) */}
+      {/* Modal Lacak Status */}
       <Modal show={showStatusModal} onHide={handleCloseStatus} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5">Status Pesanan</Modal.Title>
