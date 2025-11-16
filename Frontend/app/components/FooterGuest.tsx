@@ -1,4 +1,3 @@
-// app/components/FooterGuest.tsx
 'use client';
 
 import { Container, Row, Col, Nav, Button } from 'react-bootstrap';
@@ -15,7 +14,7 @@ function FooterGuest() {
             <h5 className="mb-3">Temui kami juga di:</h5>
             
             <div className="mb-3">
-              {/* 1. Tokopedia (<img>) */}
+              {/* 1. Tokopedia */}
               <a 
                 href="#" 
                 className="btn-icon-circle bg-primary me-2" 
@@ -27,7 +26,7 @@ function FooterGuest() {
                 />
               </a>
               
-              {/* 2. Shopee (<img>) */}
+              {/* 2. Shopee */}
               <a 
                 href="#" 
                 className="btn-icon-circle bg-primary me-2" 
@@ -39,7 +38,7 @@ function FooterGuest() {
                 />
               </a>
               
-              {/* 3. Instagram (DIUBAH ke <img>) */}
+              {/* 3. Instagram */}
               <a 
                 href="#" 
                 className="btn-icon-circle bg-primary me-2" 
@@ -51,7 +50,7 @@ function FooterGuest() {
                 />
               </a>
               
-              {/* 4. WhatsApp (DIUBAH ke <img>) */}
+              {/* 4. WhatsApp */}
               <a 
                 href="https://wa.me/6281297575567" 
                 className="btn-icon-circle bg-primary me-2" 
@@ -72,17 +71,19 @@ function FooterGuest() {
           {/* Kolom Kanan: Navigasi & Tombol Daftar */}
           <Col md={6} className="text-md-end">
             <Nav as="nav" className="justify-content-md-end mb-3">
-            <Link href="/" className="nav-link text-white px-2">Home</Link>
-            <Link href="/jasa" className="nav-link text-white px-2">Jasa</Link>
-            <Link href="/sparepart" className="nav-link text-white px-2">Sparepart</Link>
-            <Link href="/kontak" className="nav-link text-white px-2">Kontak</Link>
-            <Button 
-              as={Link} 
-              href="/daftar" 
-              variant="primary"
-            >
-              Daftar
-            </Button>
+              <Link href="/" className="nav-link text-white px-2">Home</Link>
+              <Link href="/jasa" className="nav-link text-white px-2">Jasa</Link>
+              <Link href="/sparepart" className="nav-link text-white px-2">Sparepart</Link>
+              <Link href="/kontak" className="nav-link text-white px-2">Kontak</Link>
+              
+              {/* PERBAIKAN DI SINI: Bungkus Button di dalam Link */}
+              <Link href="/daftar" passHref legacyBehavior>
+                <Button 
+                  variant="primary"
+                >
+                  Daftar
+                </Button>
+              </Link>
             </Nav>
           </Col>
         </Row>

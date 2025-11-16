@@ -1,4 +1,3 @@
-// app/components/NavbarGuest.tsx
 'use client';
 
 import { Navbar, Nav, Container, Button } from 'react-bootstrap';
@@ -11,17 +10,22 @@ function NavbarGuest() {
       variant="dark" 
       expand="lg" 
       sticky="top"
-      className="main-navbar" // <-- TAMBAHKAN CLASS INI
+      className="main-navbar"
     >
       <Container className="container-figma"> 
-        <Navbar.Brand 
-          as={Link} 
+        {/* PERBAIKAN: Gunakan Link biasa */}
+        <Link 
           href="/" 
-          className="fw-bold"
-          style={{ letterSpacing: '1px' }}
+          passHref 
+          legacyBehavior
         >
-          PONTI JAYA MOTOR
-        </Navbar.Brand>
+          <Navbar.Brand 
+            className="fw-bold"
+            style={{ letterSpacing: '1px' }}
+          >
+            PONTI JAYA MOTOR
+          </Navbar.Brand>
+        </Link>
         
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         
@@ -31,14 +35,16 @@ function NavbarGuest() {
             <Link href="/#jasa" className="nav-link mx-2">Jasa</Link>
             <Link href="/produk" className="nav-link mx-2">Produk</Link>
             <Link href="/#hubungi" className="nav-link mx-2">Hubungi Kami</Link>
-            <Button 
-              as={Link} 
-              href="/login" 
-              variant="primary" 
-              className="ms-3"
-            >
-              Masuk
-            </Button>
+            
+            {/* PERBAIKAN: Bungkus Button di dalam Link */}
+            <Link href="/login" passHref legacyBehavior>
+              <Button 
+                variant="primary" 
+                className="ms-3"
+              >
+                Masuk
+              </Button>
+            </Link>
           </Nav>
         </Navbar.Collapse>
       </Container>

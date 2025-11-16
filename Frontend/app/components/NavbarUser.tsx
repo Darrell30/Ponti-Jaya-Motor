@@ -1,4 +1,3 @@
-// app/components/NavbarUser.tsx
 'use client';
 
 import { 
@@ -7,7 +6,7 @@ import {
 } from 'react-bootstrap';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { User, Phone, Home as HomeIcon, MapPin } from 'lucide-react';
+import { User, Phone, Home as HomeIcon, MapPin, ShoppingCart } from 'lucide-react';
 import { useJsApiLoader, GoogleMap, Autocomplete } from '@react-google-maps/api';
 
 interface MapCenter {
@@ -54,7 +53,7 @@ function NavbarUser() {
 
   // Fungsi baru untuk mengubah alamat string menjadi koordinat
   const geocodeAddress = (addressString: string) => {
-    if (!isLoaded) return; 
+    if (!isLoaded || !window.google) return; 
     
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ 'address': addressString }, (results, status) => {
@@ -206,9 +205,16 @@ function NavbarUser() {
         className="main-navbar"
       >
         <Container className="container-figma"> 
-          <Navbar.Brand as={Link} href="/" className="fw-bold" style={{ letterSpacing: '1px' }}>
-            PONTI JAYA MOTOR
-          </Navbar.Brand>
+          {/* PERBAIKAN: Gunakan Link wrapping Navbar.Brand */}
+          <Link href="/" passHref legacyBehavior>
+            <Navbar.Brand 
+              className="fw-bold" 
+              style={{ letterSpacing: '1px' }}
+            >
+              PONTI JAYA MOTOR
+            </Navbar.Brand>
+          </Link>
+          
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Nav className="ms-auto align-items-center">
@@ -216,6 +222,12 @@ function NavbarUser() {
               <Link href="/#jasa" className="nav-link mx-2">Jasa</Link>
               <Link href="/produk" className="nav-link mx-2">Produk</Link> 
               <Link href="/#hubungi" className="nav-link mx-2">Hubungi Kami</Link>
+              
+              {/* Tambahkan link Keranjang */}
+              <Link href="/keranjang" className="nav-link mx-2">
+                <ShoppingCart size={20} className="text-white" />
+              </Link>
+
               <NavDropdown 
                 title={
                   <div 
@@ -236,15 +248,26 @@ function NavbarUser() {
                 >
                   {userName}
                 </NavDropdown.Item>
-                <NavDropdown.Item as={Link} href="/pembelian" className="dropdown-user-item">
-                  Pembelian
-                </NavDropdown.Item>
-                <NavDropdown.Item as={Link} href="/keranjang" className="dropdown-user-item">
-                  Keranjang
-                </NavDropdown.Item>
-                <NavDropdown.Item as={Link} href="/logout" className="dropdown-user-logout">
-                  Keluar
-                </NavDropdown.Item>
+                
+                {/* PERBAIKAN: NavDropdown.Item dengan Link */}
+                <Link href="/pembelian" passHref legacyBehavior>
+                  <NavDropdown.Item className="dropdown-user-item">
+                    Pembelian
+                  </NavDropdown.Item>
+                </Link>
+
+                <Link href="/keranjang" passHref legacyBehavior>
+                  <NavDropdown.Item className="dropdown-user-item">
+                    Keranjang
+                  </NavDropdown.Item>
+                </Link>
+
+                <Link href="/logout" passHref legacyBehavior>
+                  <NavDropdown.Item className="dropdown-user-logout">
+                    Keluar
+                  </NavDropdown.Item>
+                </Link>
+
               </NavDropdown>
             </Nav>
           </Navbar.Collapse>

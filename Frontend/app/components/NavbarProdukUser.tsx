@@ -1,8 +1,8 @@
-// app/components/NavbarProdukUser.tsx
 'use client';
 
 import { Container, Row, Col, Button, Form, InputGroup } from 'react-bootstrap';
 import Link from 'next/link';
+import { ShoppingCart } from 'lucide-react'; // Tambahkan icon cart
 
 export default function NavbarProdukUser() {
   return (
@@ -31,20 +31,19 @@ export default function NavbarProdukUser() {
             </InputGroup>
           </Col>
 
-          {/* --- INI PERUBAHANNYA --- */}
+          {/* PERBAIKAN DI SINI: Bungkus Button di dalam Link */}
           <Col md={4} className="d-flex justify-content-end gap-2">
-            <Button 
-              variant="primary" 
-              className="fw-bold" 
-              href="/keranjang" 
-              as={Link}
-              style={{ padding: '0.6rem 1.2rem' }}
-            >
-              <i className="bi bi-cart-fill me-2"></i>
-              Keranjang
-            </Button>
+            <Link href="/keranjang" passHref legacyBehavior>
+              <Button 
+                variant="primary" 
+                className="fw-bold" 
+                style={{ padding: '0.6rem 1.2rem' }}
+              >
+                <ShoppingCart size={20} className="me-2" />
+                Keranjang
+              </Button>
+            </Link>
           </Col>
-          {/* --- AKHIR PERUBAHAN --- */}
           
         </Row>
       </Container>
