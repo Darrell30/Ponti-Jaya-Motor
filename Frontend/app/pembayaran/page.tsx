@@ -1,4 +1,3 @@
-// app/pembayaran/page.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -32,6 +31,10 @@ interface MapCenter { lat: number; lng: number; }
 const defaultCenter: MapCenter = { lat: -6.2088, lng: 106.8456 };
 const libraries: ("places")[] = ['places'];
 
+// Ambil Client Key dari variabel lingkungan
+const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY; 
+const IS_PRODUCTION = false; 
+
 export default function PembayaranPage() {
   const router = useRouter();
   
@@ -46,7 +49,7 @@ export default function PembayaranPage() {
 
   const [error, setError] = useState(''); // Untuk menampilkan error
 
-  // State Google Maps (SAMA)
+  // State Google Maps
   const [isSaving, setIsSaving] = useState(false);
   const [modalMessage, setModalMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -58,7 +61,7 @@ export default function PembayaranPage() {
     libraries: libraries,
   });
 
-  // useEffect untuk ambil data (SAMA)
+  // --- EFEK: MEMUAT SCRIPT MIDTRANS SNAP JS (SOLUSI DARI ERROR 401) ---
   useEffect(() => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
@@ -92,7 +95,30 @@ export default function PembayaranPage() {
     setItems(checkoutItems);
     setLoading(false);
 
+    // B. LOGIKA MEMUAT SCRIPT MIDTRANS SNAP JS
+    if (!MIDTRANS_CLIENT_KEY) {
+        console.error("MIDTRANS_CLIENT_KEY tidak ditemukan di environment variable.");
+        setError("Kunci pembayaran tidak ditemukan.");
+        return;
+    }
+    
+    const script = document.createElement('script');
+    const scriptUrl = IS_PRODUCTION 
+        ? 'https://app.midtrans.com/snap/snap.js' 
+        : 'https://app.sandbox.midtrans.com/snap/snap.js';
+        
+    script.src = scriptUrl;
+    script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY as string);
+    script.async = true;
+
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+
   }, [router]);
+
 
   // Fungsi fetchProfile (SAMA)
   const fetchProfile = async (currentUserId: string) => {
@@ -112,7 +138,7 @@ export default function PembayaranPage() {
 
   // ... (Semua fungsi Google Maps dan Modal Alamat SAMA) ...
   const geocodeAddress = (addressString: string) => {
-    if (!isLoaded) return;
+    if (!isLoaded || !window.google) return;
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ 'address': addressString }, (results, status) => {
       if (status === 'OK' && results && results[0]) {
@@ -202,7 +228,7 @@ export default function PembayaranPage() {
   const shippingCost = 15000; 
   const grandTotal = subtotal + shippingCost;
 
-  // === FUNGSI UTAMA: TOMBOL BAYAR (VERSI MIDTRANS) ===
+  // === FUNGSI UTAMA: TOMBOL BAYAR (PERBAIKAN REDIRECT) ===
   const handleBayar = async () => {
     if (items.length === 0) { setError("Tidak ada item di checkout Anda."); return; }
     if (!userId) { setError("Sesi Anda berakhir. Harap login kembali."); return; }
@@ -248,13 +274,17 @@ export default function PembayaranPage() {
           /* Pembayaran sukses! */
           console.log('success', result);
           localStorage.setItem("showSuccessNotification", "Pesanan Sudah Berhasil Dibuat");
-          router.push('/pembelian');
+          
+          // ** PERBAIKAN: PAKSA FULL PAGE REFRESH UNTUK MEMICU useEffect DELAY **
+          window.location.href = '/pembelian'; 
         },
         onPending: function(result: any){
           /* Pembayaran pending (misal: VA belum dibayar) */
           console.log('pending', result);
           localStorage.setItem("showSuccessNotification", "Pesanan Anda sedang menunggu pembayaran.");
-          router.push('/pembelian');
+          
+          // ** PERBAIKAN: PAKSA FULL PAGE REFRESH UNTUK MEMICU useEffect DELAY **
+          window.location.href = '/pembelian';
         },
         onError: function(result: any){
           /* Pembayaran gagal */
@@ -269,8 +299,6 @@ export default function PembayaranPage() {
           setIsPlacingOrder(false);
         }
       });
-      // Kita set false di sini agar tombol bisa diklik lagi jika user menutup pop-up
-      // setIsPlacingOrder(false); // Dihandle oleh onClose/onError
 
     } catch (err: any) {
       setError(err.message); 
@@ -280,6 +308,7 @@ export default function PembayaranPage() {
 
 
   if (loading) {
+    // ... (Loading Component)
     return (
       <div className="w-100 py-5 text-center" style={{ backgroundColor: '#E5E9F0', minHeight: '100vh' }}>
         <Spinner animation="border" />
