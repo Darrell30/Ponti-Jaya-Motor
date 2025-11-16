@@ -1,12 +1,13 @@
 'use client';
 
-// 1. MODIFIKASI: Import useRouter
+// 1. MODIFIKASI: Mengimpor semua yang dibutuhkan, termasuk ChatWidget
 import { Container, Row, Col, Button, Image, Card, Spinner, Form, InputGroup, Modal, Alert, Toast, ToastContainer, Nav } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, AlertTriangle, Truck, ShoppingCart } from 'lucide-react'; // Tambahkan ShoppingCart
+import { Loader2, AlertTriangle, Truck, ShoppingCart, MessageCircle, Zap } from 'lucide-react'; // Menambahkan MessageCircle dan Zap
+import ChatWidget from '../components/ChatWidget'; // <-- Import ChatWidget
 
-// ... (interface Product, Service, dan konstanta lainnya SAMA)
+// --- TIPE DATA ---
 interface Product {
   _id: string;
   nama: string;
@@ -48,13 +49,17 @@ export default function ProdukPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMessage, setModalMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
-  // STATE KHUSUS TOAST (Sudah ada di kode Anda, ini mengkonfirmasi)
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
   const [isStoreOpen, setIsStoreOpen] = useState(true);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
+
+  // === TAMBAHAN UNTUK CHAT WIDGET ===
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatProduct, setChatProduct] = useState<Product | null>(null); // State yang dikirim ke ChatWidget
+  // ===================================
 
   useEffect(() => {
     // ... (Logika fetchProducts Anda SAMA, tidak berubah) ...
@@ -66,26 +71,40 @@ export default function ProdukPage() {
             fetch('http://localhost:5000/api/services'),
             fetch('http://localhost:5000/api/store/status')
         ]);
-        if (!sparepartRes.ok) throw new Error('Gagal mengambil data');
+        
+        let allProducts: Product[] = [];
+        if (sparepartRes.ok) {
+            const data = await sparepartRes.json();
+            if (data.success) allProducts = data.data;
+        } else {
+            throw new Error('Gagal mengambil data sparepart');
+        }
+
         if (storeStatusRes.ok) {
             const storeData = await storeStatusRes.json();
             if (storeData.success) setIsStoreOpen(storeData.isStoreOpen);
         }
-        const data = await sparepartRes.json();
+        
         const serviceData = await serviceRes.json();
-        if (data.success) {
-          const productsWithCategory = data.data.map((p: Product) => ({
+        
+        const productsWithCategory = allProducts.map((p: Product) => ({
             ...p,
             kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart'
-          }));
-          setProducts(productsWithCategory);
-        } else {
-          throw new Error(data.message || 'Gagal memuat data');
-        }
+        }));
+        setProducts(productsWithCategory);
+
         if (serviceData.success) {
             setServices(serviceData.data.slice(0, 3));
         }
+
       } catch (err: any) {
+         // Fallback to mock data if API fails
+        const mockProducts: Product[] = [
+            { _id: '1', nama: 'Veleg Racing 17"', imageUrl: 'https://placehold.co/400x300/0d6efd/fff?text=Veleg+Racing', harga: 850000, stok: 5, deskripsi: 'Veleg alloy ringan dan kuat.' },
+            { _id: '2', nama: 'Selang Rem Performance', imageUrl: 'https://placehold.co/400x300/6c757d/fff?text=Selang+Rem', harga: 150000, stok: 12, deskripsi: 'Meningkatkan respons pengereman.' },
+            { _id: '3', nama: 'Kampas Rem Bendix', imageUrl: 'https://placehold.co/400x300/ffc107/000?text=Kampas+Rem', harga: 75000, stok: 30, deskripsi: 'Pengereman senyap dan efektif.' },
+          ];
+        setProducts(mockProducts);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -112,18 +131,16 @@ export default function ProdukPage() {
   };
   const subtotal = selectedProduct ? selectedProduct.harga * quantity : 0;
 
-  // === 3. MODIFIKASI: handleAddToCart (TAMBAH NOTIFIKASI SUKSES) ===
+  // === handleAddToCart ===
   const handleAddToCart = async () => {
     setIsSubmitting(true);
     setModalMessage(null);
 
-    // --- Cek Login di sini ---
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      router.push('/login'); // Alihkan ke halaman login
+      router.push('/login'); 
       return; 
     }
-    // --- Akhir Cek Login ---
 
     let userInfo;
     try {
@@ -134,15 +151,10 @@ export default function ProdukPage() {
       return;
     }
     const userId = userInfo ? userInfo.userId : null;
-    if (!userId) {
-      setModalMessage({ type: 'error', text: 'Gagal mendapatkan ID user. Harap login kembali.' });
+    if (!userId || !selectedProduct) {
+      setModalMessage({ type: 'error', text: 'Data user atau produk tidak valid.' });
       setIsSubmitting(false);
       return; 
-    }
-    if (!selectedProduct) {
-      setModalMessage({ type: 'error', text: 'Produk tidak ditemukan.' });
-      setIsSubmitting(false);
-      return;
     }
     const cartItemData = {
       userId: userId, 
@@ -165,20 +177,17 @@ export default function ProdukPage() {
       }
       
       handleCloseModal();
-      
-      // ** LOGIKA TOAST NOTIFICATION **
       setToastMessage(`Produk "${selectedProduct.nama}" berhasil ditambahkan ke keranjang!`);
       setShowToast(true);
       
     } catch (err: any) {
       setModalMessage({ type: 'error', text: err.message });
-      setIsSubmitting(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- 4. FUNGSI BARU: Logika inti "Beli Langsung" ---
+  // --- Logika inti "Beli Langsung" ---
   const proceedToCheckout = () => {
     if (!selectedProduct) return;
     const itemToCheckout = {
@@ -196,17 +205,14 @@ export default function ProdukPage() {
     router.push('/pembayaran');
   };
 
-  // --- 5. MODIFIKASI: handleBuyNowClick ---
+  // --- Handler Tombol "Beli Langsung" ---
   const handleBuyNowClick = () => {
-    // --- Cek Login di sini ---
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      router.push('/login'); // Alihkan ke halaman login
+      router.push('/login'); 
       return; 
     }
-    // --- Akhir Cek Login ---
 
-    // Jika sudah login, lanjutkan cek status toko
     if (!isStoreOpen) {
         setShowWarningModal(true);
     } else {
@@ -214,31 +220,41 @@ export default function ProdukPage() {
     }
   };
   
-  // --- 6. MODIFIKASI: executeBuyProcess ---
+  // --- Digunakan oleh Modal Peringatan ---
   const executeBuyProcess = () => {
-    // Tidak perlu cek login di sini, karena tombolnya
-    // hanya bisa diakses setelah handleBuyNowClick (yang sudah dicek)
     proceedToCheckout(); 
   };
   
-  // --- 7. BARU: Handler untuk "Chat Toko" ---
+  // === 7. LOGIKA CHAT TOKO AKTIF ===
   const handleChatToko = () => {
-    // --- Cek Login di sini ---
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      router.push('/login'); // Alihkan ke halaman login
+      router.push('/login'); 
       return; 
     }
-    // --- Akhir Cek Login ---
     
-    // Logika chat (bisa diganti ke WA nanti)
-    alert('Fitur "Chat Toko" sedang dalam pengembangan.');
+    // 1. Ambil data produk minimum yang diperlukan oleh ChatWidget
+    if (selectedProduct) {
+        const productToSend = {
+            _id: selectedProduct._id,
+            nama: selectedProduct.nama,
+            imageUrl: selectedProduct.imageUrl,
+            harga: selectedProduct.harga,
+        };
+        setChatProduct(productToSend);
+    } else {
+         setChatProduct(null); // Mulai chat tanpa konteks produk jika selectedProduct hilang
+    }
+
+    // 2. Tutup modal produk dan buka widget chat
+    handleCloseModal(); 
+    setIsChatOpen(true); 
   };
-  // ------------------------------------------------
+  // ------------------------------------
 
   const buttonStyle = {
     height: '48px',
-    fontSize: '1.1rem',
+    fontSize: '1.0rem',
     fontWeight: 'bold' as const, 
     display: 'flex',
     alignItems: 'center',
@@ -249,8 +265,8 @@ export default function ProdukPage() {
     .filter(product => {
       if (activeCategory === 'Semua') return true;
       if (activeCategory === 'Sparepart') return product.kategori === 'Sparepart';
-      if (activeCategory === 'Ori') return true; 
-      if (activeCategory === 'KW') return true;
+      if (activeCategory === 'Ori') return product.nama.toLowerCase().includes('ori'); 
+      if (activeCategory === 'KW') return product.nama.toLowerCase().includes('kw');
       return true;
     })
     .sort((a, b) => {
@@ -263,11 +279,20 @@ export default function ProdukPage() {
       return 0;
     });
 
-  // --- RENDER JSX (MODIFIKASI PADA TOMBOL MODAL) ---
+  // --- RENDER JSX ---
   return (
     <>
+      {/* RENDER CHAT WIDGET */}
+      <ChatWidget 
+         isOpen={isChatOpen} 
+         onClose={() => {
+            setIsChatOpen(false);
+            setChatProduct(null); // Clear context when closing
+         }} 
+         productContext={chatProduct} 
+      />
+
       <Container className="py-5">
-        {/* ... (Header, Filter, Loading, Error, Daftar Produk... SEMUA SAMA) ... */}
         <Row className="mb-4 align-items-center">
           <Col md={8}>
             <Nav variant="pills" className="filter-pills" activeKey={activeCategory}>
@@ -308,11 +333,12 @@ export default function ProdukPage() {
                   src={product.imageUrl}
                   alt={product.nama}    
                   style={{ height: '180px', objectFit: 'cover' }}
+                  onClick={() => handleShowModal(product)}
                 />
                 <Card.Body className="d-flex flex-column">
                   <div className="d-flex justify-content-between align-items-center">
                     <div className="me-2">
-                      <Card.Title as="h6" className="fw-bold text-dark mb-1">
+                      <Card.Title as="h6" className="fw-bold text-dark mb-1 text-truncate">
                         {product.nama}
                       </Card.Title>
                       <Card.Text className="text-dark fw-bold small mb-0">
@@ -347,28 +373,25 @@ export default function ProdukPage() {
       </Container>
 
       <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
-        {/* ... (Modal Header SAMA) ... */}
         <Modal.Header closeButton className="border-0">
           {selectedProduct && <Modal.Title as="h3" className="fw-bold text-dark">{selectedProduct.nama}</Modal.Title>}
         </Modal.Header>
         <Modal.Body className="p-4 pt-0">
           {selectedProduct && (
             <Row className="g-custom-20">
-              {/* ... (Modal Col-7 Image SAMA) ... */}
               <Col md={7}>
                 <Image src={selectedProduct.imageUrl} alt={selectedProduct.nama} fluid rounded />
               </Col>
               <Col md={5}>
-                {/* ... (Deskripsi, Quantity Box, Subtotal SAMA) ... */}
                 <p className="text-secondary small">{selectedProduct.deskripsi || 'Deskripsi untuk produk ini belum tersedia.'}</p>
                 <div className="quantity-box border rounded-3 p-3 my-4">
                   <h6 className="fw-bold text-dark">Atur Jumlah</h6>
                   <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="d-flex align-items-center border rounded-3 bg-white">
-                      <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityIncrease} disabled={isSubmitting}>+</Button>
-                      <Form.Control type="number" className="quantity-input-modal shadow-none" value={quantity} readOnly />
-                      <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityDecrease} disabled={isSubmitting}>-</Button>
-                    </div>
+                    <InputGroup className="d-flex align-items-center border rounded-3 bg-white" style={{ maxWidth: '120px' }}>
+                        <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityDecrease} disabled={isSubmitting}>-</Button>
+                        <Form.Control type="number" className="quantity-input-modal shadow-none text-center" value={quantity} readOnly style={{ border: 'none', background: 'transparent' }} />
+                        <Button variant="link" className="btn-modal-quantity" onClick={handleQuantityIncrease} disabled={isSubmitting}>+</Button>
+                    </InputGroup>
                     <span className="text-secondary small">Stok: <strong className="text-dark">{selectedProduct.stok || 'N/A'}</strong></span>
                   </div>
                 </div>
@@ -379,7 +402,6 @@ export default function ProdukPage() {
                 
                 {modalMessage && modalMessage.type === 'error' && (<Alert variant="danger" className="py-2 small">{modalMessage.text}</Alert>)}
                 
-                {/* === MODIFIKASI: Tombol-tombol di-update === */}
                 <div className="d-flex flex-column gap-2">
                   <Button variant="primary" className="w-100 rounded-3 btn-add-to-cart" onClick={handleAddToCart} disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <><ShoppingCart size={18} className="me-2" />+ Keranjang</>}
@@ -392,9 +414,10 @@ export default function ProdukPage() {
                     disabled={isSubmitting}
                     onClick={handleBuyNowClick}
                   >
-                    Beli Langsung
+                    <Zap size={18} className="me-2" fill="currentColor" /> Beli Langsung
                   </Button>
 
+                  {/* TOMBOL CHAT TOKO AKTIF */}
                   <Button 
                     variant="outline-secondary" 
                     className="w-100 rounded-3" 
@@ -402,17 +425,15 @@ export default function ProdukPage() {
                     disabled={isSubmitting}
                     onClick={handleChatToko}
                   >
-                    <i className="bi bi-chat-dots me-2"></i>Chat Toko
+                    <MessageCircle size={18} className="me-2" /> Chat Toko
                   </Button>
                 </div>
-                {/* === AKHIR MODIFIKASI === */}
               </Col>
             </Row>
           )}
         </Modal.Body>
       </Modal>
 
-      {/* ... (ToastContainer SAMA) ... */}
       <ToastContainer position="bottom-center" className="p-3" style={{ zIndex: 9999 }}>
         <Toast onClose={() => setShowToast(false)} show={showToast} delay={3000} autohide bg="dark">
           <Toast.Body className="text-white text-center fw-bold d-flex align-items-center justify-content-center">
@@ -422,7 +443,6 @@ export default function ProdukPage() {
         </Toast>
       </ToastContainer>
 
-      {/* ... (Modal Peringatan Toko Tutup SAMA) ... */}
       <Modal 
         show={showWarningModal} 
         onHide={() => setShowWarningModal(false)} 
