@@ -12,6 +12,10 @@ declare global {
   }
 }
 
+// Ambil Client Key dan status produksi untuk memuat script Snap
+const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY; 
+const IS_PRODUCTION = false; 
+
 // --- TIPE DATA ---
 interface OrderItem {
   _id: string; // ID dari sub-dokumen
@@ -108,7 +112,7 @@ export default function PembelianPage() {
     }
   };
 
-  // --- EFEK 1: Ambil UserID ---
+  // --- EFEK 1: Ambil UserID & Muat Script Midtrans Snap ---
   useEffect(() => {
     const userInfoString = localStorage.getItem("userInfo"); 
     if (userInfoString) {
@@ -116,7 +120,30 @@ export default function PembelianPage() {
       setUserId(userInfo.userId); 
     } else {
       router.push('/login'); 
+      return;
     }
+
+    // ** LOGIKA BARU: MEMUAT SCRIPT MIDTRANS SNAP **
+    if (!MIDTRANS_CLIENT_KEY) {
+        console.error("MIDTRANS_CLIENT_KEY tidak ditemukan untuk halaman pembelian.");
+        return;
+    }
+    
+    const script = document.createElement('script');
+    const scriptUrl = IS_PRODUCTION 
+        ? 'https://app.midtrans.com/snap/snap.js' 
+        : 'https://app.sandbox.midtrans.com/snap/snap.js';
+        
+    script.src = scriptUrl;
+    script.setAttribute('data-client-key', MIDTRANS_CLIENT_KEY as string);
+    script.async = true;
+
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+
   }, [router]);
 
   // --- EFEK 2: Ambil Data Pesanan (Dengan Logika Delay Refresh) ---
@@ -149,6 +176,13 @@ export default function PembelianPage() {
   // --- FUNGSI BARU: Bayar Ulang (Memanggil Snap) ---
   const handleBayarUlang = async (orderId: string, totalAmount: number) => {
     if (isRePaying || !userId) return;
+    
+    // Pastikan Snap sudah dimuat
+    if (!window.snap) {
+        setNotification("Layanan pembayaran belum siap. Coba muat ulang halaman.");
+        return;
+    }
+    
     setIsRePaying(true);
     setNotification(null);
 
@@ -173,9 +207,9 @@ export default function PembelianPage() {
         // 2. Tampilkan Pop-up Snap
         window.snap.pay(transactionToken, {
             onSuccess: function(result: any){
-                // ** PERBAIKAN: Gunakan localStorage untuk trigger refresh di halaman ini **
+                // Menggunakan window.location.reload() untuk trigger useEffect delay
                 localStorage.setItem("showSuccessNotification", "✅ Pembayaran berhasil! Status akan segera diperbarui.");
-                window.location.reload(); // Paksa refresh halaman untuk trigger useEffect delay
+                window.location.reload(); 
             },
             onPending: function(result: any){
                 localStorage.setItem("showSuccessNotification", "⏳ Menunggu pembayaran. Selesaikan pembayaran di pop-up.");
@@ -323,7 +357,7 @@ export default function PembelianPage() {
                       </div>
                       
                       <div className="d-flex gap-2">
-                        {/* === MODIFIKASI: TOMBOL BAYAR SEKARANG === */}
+                        {/* === TOMBOL BAYAR SEKARANG RE-PAYMENT === */}
                         {order.status === 'Menunggu Pembayaran' && (
                           <Button 
                             variant="primary" 

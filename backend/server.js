@@ -146,8 +146,6 @@ const server = http.createServer(async (req, res) => {
         // ------------------------------------
     }
 
-    // --- (Routing lainnya tetap sama) ---
-
     // JALUR KHUSUS DELETE SPAREPART
     if (method === 'DELETE' && path.startsWith('/api/spareparts/')) {
         const id = path.split('/')[3];
@@ -645,14 +643,17 @@ const server = http.createServer(async (req, res) => {
             
             let orderToProcess;
 
-            // KASUS 1: BAYAR ULANG (Order sudah ada di DB)
+            // ** LOGIKA PERBAIKAN: MEMISAHKAN CHECKOUT BARU dan RE-PAYMENT **
+            
+            // KASUS 1: BAYAR ULANG (Order ID sudah ada dari frontend)
             if (orderId) { 
                 orderToProcess = await Order.findById(orderId);
                 if (!orderToProcess) {
                      return sendResponse(res, 404, { success: false, message: 'Order lama tidak ditemukan.' });
                 }
+                // Jika Order ID ada, KITA TIDAK MEMBUAT ORDER BARU di DB.
             } 
-            // KASUS 2: CHECKOUT BARU (Order belum ada)
+            // KASUS 2: CHECKOUT BARU (Order ID belum ada)
             else {
                 if (!userId || !items || !shippingAddress || !totalAmount) {
                     return sendResponse(res, 400, { success: false, message: 'Data pesanan baru tidak lengkap' });
@@ -662,6 +663,7 @@ const server = http.createServer(async (req, res) => {
                     return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
                 }
                 
+                // Buat Order baru
                 orderToProcess = await Order.create({
                     user: userId,
                     items: items,
@@ -671,6 +673,7 @@ const server = http.createServer(async (req, res) => {
                     status: 'Menunggu Pembayaran'
                 });
             }
+            // ** AKHIR LOGIKA PERBAIKAN **
             
             console.log(`[0] Order ${orderToProcess._id} diproses, status: ${orderToProcess.status}.`);
             
@@ -824,9 +827,15 @@ const server = http.createServer(async (req, res) => {
     // 1. KIRIM PESAN (POST)
     else if (path === '/api/messages/send' && method === 'POST') {
         try {
-            const Message = require('./models/Message'); // Pastikan path benar
+            const Message = require('./models/Message'); // Asumsi model Message ada
             const body = await getRequestBody(req);
             const { senderId, senderName, receiverId, text, isFromAdmin } = body;
+
+            // Pastikan Anda menangani kasus ketika model Message belum didefinisikan 
+            if (typeof Message === 'undefined') {
+                console.warn('Model Message belum didefinisikan atau path salah.');
+                return sendResponse(res, 500, { success: false, message: 'Model Message tidak ditemukan.' });
+            }
 
             const newMessage = await Message.create({
                 senderId, senderName, receiverId, text, isFromAdmin
@@ -840,21 +849,23 @@ const server = http.createServer(async (req, res) => {
     }
 
     // 2. AMBIL PESAN ANTARA ADMIN & USER (GET)
-    // Format URL: /api/messages/history?userId=xxxxx
     else if (path === '/api/messages/history' && method === 'GET') {
         try {
-            const Message = require('./models/Message');
+            const Message = require('./models/Message'); // Asumsi model Message ada
             const userId = parsedUrl.searchParams.get('userId'); // ID User lawan bicara
             
             if (!userId) return sendResponse(res, 400, { success: false, message: 'Butuh userId' });
 
-            // Ambil pesan dimana (sender=User AND receiver=Admin) ATAU (sender=Admin AND receiver=User)
+            if (typeof Message === 'undefined') {
+                 return sendResponse(res, 500, { success: false, message: 'Model Message tidak ditemukan.' });
+            }
+
             const messages = await Message.find({
                 $or: [
                     { senderId: userId, receiverId: 'admin' },
                     { senderId: 'admin', receiverId: userId }
                 ]
-            }).sort({ createdAt: 1 }); // Urut dari yang terlama ke terbaru
+            }).sort({ createdAt: 1 }); 
 
             sendResponse(res, 200, { success: true, data: messages });
         } catch (error) {
@@ -865,14 +876,14 @@ const server = http.createServer(async (req, res) => {
     // 3. (ADMIN ONLY) AMBIL DAFTAR USER YANG PERNAH CHAT (GET)
     else if (path === '/api/messages/conversations' && method === 'GET') {
         try {
-            const Message = require('./models/Message');
+            const Message = require('./models/Message'); // Asumsi model Message ada
             
-            // Cari semua pesan yang BUKAN dari admin (pesan masuk dari user)
-            // Kelompokkan berdasarkan senderId agar admin tau siapa aja yang chat
+            if (typeof Message === 'undefined') {
+                 return sendResponse(res, 500, { success: false, message: 'Model Message tidak ditemukan.' });
+            }
+            
             const senders = await Message.distinct('senderId', { isFromAdmin: false });
             
-            // Kita butuh nama usernya juga. Cari info detail usernya.
-            // (Cara simpel: ambil pesan terakhir dari tiap sender untuk dapat namanya)
             let conversations = [];
             for (let uid of senders) {
                 const lastMsg = await Message.findOne({ senderId: uid }).sort({ createdAt: -1 });
