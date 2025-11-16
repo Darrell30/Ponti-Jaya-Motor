@@ -5,9 +5,8 @@ import { Roboto } from 'next/font/google';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './globals.css';
-// 1. Hapus import NavbarGuest dan FooterGuest
-// 2. Import LayoutRenderer yang baru
 import LayoutRenderer from './components/LayoutRenderer';
+import Script from 'next/script'; 
 
 const roboto = Roboto({
   subsets: ['latin'],
@@ -24,15 +23,23 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  
+  const midtransClientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
+
   return (
     <html lang="id">
       <body 
         className={roboto.className} 
         suppressHydrationWarning={true}
       >
-        {/* 3. Panggil LayoutRenderer di sini.
-             Dia yang akan memutuskan apakah Navbar/Footer perlu tampil.
-        */}
+        {/* 2. TAMBAHKAN SCRIPT MIDTRANS DI SINI */}
+        <Script
+          src="https://app.sandbox.midtrans.com/snap/snap.js"
+          strategy="beforeInteractive"
+          data-client-key={midtransClientKey}
+        />
+        {/* ------------------------------- */}
+        
         <LayoutRenderer>
           {children}
         </LayoutRenderer>
