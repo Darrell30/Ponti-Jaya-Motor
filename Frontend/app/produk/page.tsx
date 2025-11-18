@@ -90,7 +90,8 @@ export default function ProdukPage() {
         const productsWithCategory = allProducts.map((p: Product) => ({
             ...p,
             kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart'
-        }));
+        })) as Product[];
+        
         setProducts(productsWithCategory);
 
         if (serviceData.success) {
