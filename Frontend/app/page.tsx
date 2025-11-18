@@ -108,7 +108,7 @@ export default function Home() {
             ...p,
             // (Logika kategori ini disalin dari produk/page.tsx)
             kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart' 
-          }));
+          })) as Product[];
           
           const filteredFeatured = allProducts.filter(product =>
             featuredProductNames.includes(product.nama)
