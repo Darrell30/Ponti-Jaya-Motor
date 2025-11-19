@@ -12,10 +12,7 @@ declare global {
   }
 }
 
-// --- PERBAIKAN UTAMA DI SINI ---
-// Kita paksa pakai http://localhost:5000 jika tidak ada env variable.
-// Ini agar fetch menembak ke backend Node.js Anda, bukan ke Next.js (port 3000).
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = 'http://localhost:5000';
 const MIDTRANS_CLIENT_KEY = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY; 
 
 // --- TIPE DATA ---
@@ -46,7 +43,19 @@ const OrderStatusTracker = ({ status }: { status: OrderStatus }) => {
   };
   const currentStepIndex = statusMap[status];
 
-  if (currentStepIndex === -1) return <p className="text-danger text-center fw-bold">Pesanan ini dibatalkan.</p>;
+  // Tampilan Khusus jika Dibatalkan
+  if (currentStepIndex === -1) {
+    return (
+      <div className="text-center py-4">
+        <div className="mb-3 text-danger">
+           <AlertTriangle size={48} />
+        </div>
+        <h5 className="text-danger fw-bold">Pesanan Dibatalkan</h5>
+        <p className="text-secondary small">Pesanan ini telah dibatalkan dan tidak dapat dilanjutkan.</p>
+      </div>
+    );
+  }
+  
   if (currentStepIndex === 0) return <p className="text-warning text-center fw-bold">Menunggu pembayaran Anda.</p>;
   
   return (
@@ -98,14 +107,10 @@ export default function PembelianPage() {
     setError(null);
     try {
       const response = await fetch(`${API_URL}/api/orders?userId=${currentUserId}`);
-      
-      // Guard: Cek apakah response valid JSON
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-         // Jika masuk sini, berarti Anda lupa menyalakan "node server.js" atau port salah
-         throw new Error("Gagal terhubung ke Backend (Port 5000). Pastikan server.js menyala.");
+         throw new Error("Gagal terhubung ke server (Respons bukan JSON).");
       }
-
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Gagal mengambil data pesanan');
@@ -154,14 +159,11 @@ export default function PembelianPage() {
   }, [userId]); 
 
   // --- FUNGSI AKSI ---
-  
-  // 1. Buka Modal Batal
   const confirmCancel = (orderId: string) => {
     setOrderToCancel(orderId);
     setShowCancelModal(true);
   };
 
-  // 2. Eksekusi Batal (API)
   const handleCancelOrder = async () => {
     if (!orderToCancel) return;
     setIsCancelling(true);
@@ -184,7 +186,6 @@ export default function PembelianPage() {
     }
   };
 
-  // 3. Bayar Ulang
   const handleBayarUlang = async (orderId: string, totalAmount: number) => {
     if (isRePaying || !userId || !window.snap) return;
     setIsRePaying(true);
@@ -207,7 +208,6 @@ export default function PembelianPage() {
     }
   };
 
-  // 4. Update Selesai
   const handleCompleteOrder = async (orderId: string) => {
     try {
         const response = await fetch(`${API_URL}/api/orders/status`, {
@@ -259,13 +259,15 @@ export default function PembelianPage() {
 
         <div className="d-flex flex-column gap-4">
           {!loading && !error && filteredOrders.length > 0 && filteredOrders.map((order) => {
-              const showTrackerButton = ['Diproses', 'Dikirim', 'Tiba'].includes(order.status);
-              const shortOrderId = `...${order._id.slice(-6)}`;
-              
               // LOGIKA TOMBOL
               const canCancel = order.status === 'Menunggu Pembayaran' || order.status === 'Diproses';
               const canPay = order.status === 'Menunggu Pembayaran';
               const canComplete = order.status === 'Tiba';
+              
+              // Logic Tracker: Munculkan "Cek Status" di status ini
+              const showTrackerButton = ['Diproses', 'Dikirim', 'Tiba'].includes(order.status);
+
+              const shortOrderId = `...${order._id.slice(-6)}`;
 
               return (
                 <Card key={order._id} className="border-0 rounded-3 overflow-hidden card-transaction bg-white">
@@ -299,31 +301,44 @@ export default function PembelianPage() {
                       </div>
                       
                       <div className="d-flex gap-2">
+                        {/* Tombol Bayar */}
                         {canPay && (
                           <Button variant="primary" size="sm" className="fw-bold" onClick={() => handleBayarUlang(order._id, order.totalAmount)} disabled={isRePaying}>
                             {isRePaying ? <Spinner size="sm" animation="border"/> : "Bayar Sekarang"}
                           </Button>
                         )}
                         
+                        {/* Tombol Batal */}
                         {canCancel && (
                             <Button variant="outline-danger" size="sm" className="fw-bold" onClick={() => confirmCancel(order._id)}>
                                 Batalkan
                             </Button>
                         )}
 
+                        {/* Tombol Selesai */}
                         {canComplete && (
                             <Button variant="success" size="sm" className="fw-bold text-white" onClick={() => handleCompleteOrder(order._id)}>
                                 Pesanan Diterima
                             </Button>
                         )}
                         
+                        {/* Tombol Cek Status (Untuk yang berjalan) */}
                         {showTrackerButton && (
                           <Button variant="outline-primary" size="sm" className="fw-bold" onClick={() => handleShowStatus(order)}>Cek Status</Button>
                         )}
 
+                        {/* Tombol Beli Lagi (Selesai) */}
                         {order.status === 'Selesai' && (
                             <Link href="/produk" passHref legacyBehavior><Button variant="outline-primary" size="sm" className="fw-bold">Beli Lagi</Button></Link>
                         )}
+                        
+                        {/* --- TAMBAHAN: Tombol Detail untuk "Dibatalkan" --- */}
+                        {order.status === 'Dibatalkan' && (
+                            <Button variant="outline-secondary" size="sm" className="fw-bold" onClick={() => handleShowStatus(order)}>
+                                Lihat Detail
+                            </Button>
+                        )}
+
                       </div>
                     </div>
                   </Card.Footer>
@@ -333,7 +348,7 @@ export default function PembelianPage() {
         </div>
       </Container>
 
-      {/* === MODAL KONFIRMASI BATAL (DESAIN POP-UP BARU) === */}
+      {/* Modal Batal */}
       <Modal show={showCancelModal} onHide={() => setShowCancelModal(false)} centered contentClassName="border-0 rounded-4 shadow" backdrop="static">
         <Modal.Body className="text-center p-4 p-md-5">
           <div className="mb-4 d-flex justify-content-center">
@@ -354,7 +369,7 @@ export default function PembelianPage() {
         </Modal.Body>
       </Modal>
 
-      {/* MODAL STATUS (TETAP SEPERTI ASLI) */}
+      {/* Modal Status Tracker (Juga dipakai untuk Detail Dibatalkan) */}
       <Modal show={showStatusModal} onHide={handleCloseStatus} centered>
         <Modal.Header closeButton><Modal.Title className="fw-bold fs-5">Status Pesanan</Modal.Title></Modal.Header>
         <Modal.Body className="p-4">
