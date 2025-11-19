@@ -1,4 +1,3 @@
-// app/page.tsx
 'use client';
 
 // 1. MODIFIKASI: Tambahkan import untuk Modal, Form, Toast, Alert, dan Loader2
@@ -8,10 +7,12 @@ import {
 } from 'react-bootstrap';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react'; // <-- Baru
+// PERBAIKAN: Menambahkan MessageCircle ke import
+import { Loader2, MessageCircle } from 'lucide-react'; 
 // === BARU: Impor useRouter untuk redirect ===
 import { useRouter } from 'next/navigation';
-// ==========================================
+import ChatWidget from './components/ChatWidget'; 
+
 
 // === TIPE DATA ===
 interface Product {
@@ -21,7 +22,7 @@ interface Product {
   harga: number;
   stok?: number;
   deskripsi?: string;
-  kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW'; // <-- Tambahkan 'kategori'
+  kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW'; 
 }
 
 // TIPE BARU UNTUK JASA
@@ -62,12 +63,12 @@ export default function Home() {
   // === STATE (DIPERBARUI) ===
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
-  const [services, setServices] = useState<Service[]>([]); // <-- STATE BARU UNTUK JASA
+  const [services, setServices] = useState<Service[]>([]); 
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // === BARU: State Modal (Disalin dari produk/page.tsx) ===
+  // === BARU: State Modal ===
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1); 
@@ -75,23 +76,25 @@ export default function Home() {
   const [modalMessage, setModalMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  // ========================================================
+
+  // === PERBAIKAN: STATE UNTUK CHAT WIDGET ===
+  // State ini yang sebelumnya hilang sehingga menyebabkan error 'setChatProduct not found'
+  const [chatProduct, setChatProduct] = useState<Product | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  // ==========================================
 
   const whatsappNumber = "6281297575567";
-  const shopEmail = "edward.stiawan06@gmail.com"; // <-- Diambil dari .env
+  const shopEmail = "edward.stiawan06@gmail.com"; 
   const emailSubject = "Pertanyaan Mengenai Ponti Jaya Motor";
-  // Membuat link mailto dinamis
   const mailtoUrl = `mailto:${shopEmail}?subject=${encodeURIComponent(emailSubject)}`;
-  // =============================================
 
   // === LOGIKA FETCH (DIPERBARUI) ===
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        // Kita akan mengambil data sparepart DAN service secara bersamaan
         const [sparepartRes, serviceRes] = await Promise.all([
           fetch('http://localhost:5000/api/spareparts'),
-          fetch('http://localhost:5000/api/services') // <-- PANGGILAN API BARU
+          fetch('http://localhost:5000/api/services') 
         ]);
 
         if (!sparepartRes.ok || !serviceRes.ok) {
@@ -99,14 +102,12 @@ export default function Home() {
         }
 
         const sparepartData = await sparepartRes.json();
-        const serviceData = await serviceRes.json(); // <-- DATA BARU
+        const serviceData = await serviceRes.json(); 
 
-        // Proses data sparepart (seperti sebelumnya)
+        // Proses data sparepart
         if (sparepartData.success) {
-          // MODIFIKASI: Tambahkan 'kategori' agar modal berfungsi
           const allProducts: Product[] = sparepartData.data.map((p: Product) => ({
             ...p,
-            // (Logika kategori ini disalin dari produk/page.tsx)
             kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart' 
           })) as Product[];
           
@@ -125,8 +126,7 @@ export default function Home() {
 
         // Proses data jasa
         if (serviceData.success) {
-          // Ambil 3 jasa pertama saja, sesuai permintaan Anda
-          setServices(serviceData.data.slice(0, 3)); // <-- SET STATE BARU
+          setServices(serviceData.data.slice(0, 3)); 
         } else {
           throw new Error(serviceData.message || 'Gagal memuat data jasa');
         }
@@ -135,14 +135,41 @@ export default function Home() {
         console.error("Fetch Error:", err);
         setError(err.message);
       } finally {
-        setLoading(false); // Set loading false HANYA setelah semua data selesai
+        setLoading(false); 
       }
     };
 
     fetchAllData();
-  }, [router]); // [] diubah menjadi [router] untuk memastikan router ter-inisialisasi
+  }, [router]); 
 
-  // === BARU: Handlers Modal (Disalin dari produk/page.tsx) ===
+  const handleServiceChat = (service: Service) => {
+    const userInfoString = localStorage.getItem("userInfo");
+    
+    // Cek Login
+    if (!userInfoString) {
+      alert("Silakan login terlebih dahulu untuk bertanya tentang jasa.");
+      router.push('/login');
+      return;
+    }
+
+    // Ubah data 'Service' menjadi format 'Product' agar dibaca oleh ChatWidget
+    const serviceAsProduct: Product = {
+      _id: service._id,
+      nama: service.nama,
+      imageUrl: service.imageUrl,
+      harga: service.harga,
+      stok: 1, // Service, tidak ada stok
+      deskripsi: service.deskripsi,
+      kategori: 'Jasa'
+    };
+    
+    // Set konteks produk dan buka widget
+    setChatProduct(serviceAsProduct); // Sekarang ini tidak akan error
+    setIsChatOpen(true);              // Ini juga aman
+  };
+
+
+  // === Handlers Modal ===
   const handleCloseModal = () => { setShowModal(false); setSelectedProduct(null); };
   const handleShowModal = (product: Product) => {
     setSelectedProduct(product);
@@ -161,7 +188,6 @@ export default function Home() {
   };
   const subtotal = selectedProduct ? selectedProduct.harga * quantity : 0;
 
-  // Style (disalin dari produk/page.tsx)
   const buttonStyle = {
     height: '48px',
     fontSize: '1.1rem',
@@ -171,17 +197,14 @@ export default function Home() {
     justifyContent: 'center',
   };
 
-  // === FUNGSI "+ KERANJANG" (MODIFIKASI) ===
+  // === FUNGSI "+ KERANJANG" ===
   const handleAddToCart = async () => {
-    // --- MODIFIKASI: Cek login dan redirect ---
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      router.push('/login'); // Alihkan ke halaman login
+      router.push('/login'); 
       return; 
     }
-    // --- AKHIR MODIFIKASI ---
 
-    // Jika sudah login, lanjutkan...
     setIsSubmitting(true);
     setModalMessage(null);
     
@@ -220,37 +243,38 @@ export default function Home() {
     }
   };
   
-  // === BARU: Handler untuk tombol "Beli Langsung" ===
   const handleBeliLangsung = () => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      router.push('/login'); // Alihkan ke halaman login
+      router.push('/login'); 
       return; 
     }
-    // Jika sudah login, lanjutkan ke fitur Beli Langsung
-    // (Tambahkan logika Beli Langsung di sini nanti)
     alert('Fitur "Beli Langsung" sedang dalam pengembangan.');
   };
   
-  // === BARU: Handler untuk tombol "Chat Toko" ===
   const handleChatToko = () => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
-      router.push('/login'); // Alihkan ke halaman login
+      router.push('/login'); 
       return; 
     }
-    // Jika sudah login, lanjutkan ke fitur Chat Toko
-    // (Tambahkan logika Chat Toko di sini nanti, misal: buka WA)
-    alert('Fitur "Chat Toko" sedang dalam pengembangan.');
+    // Tutup modal produk
+    handleCloseModal();
+    
+    // Set chat ke produk yang sedang dibuka di modal
+    if (selectedProduct) {
+        setChatProduct(selectedProduct);
+        setIsChatOpen(true);
+    } else {
+        alert('Produk tidak valid');
+    }
   };
-  // ========================================================
 
 
   return (
-    // Pastikan Navbar dipanggil di sini jika belum ada
     <main style={{ backgroundColor: "#fff" }}>
       
-      {/* === 1. HERO SECTION (Tidak Berubah) === */}
+      {/* === 1. HERO SECTION === */}
       <div
         id="hero"
         className="text-center text-white"
@@ -292,7 +316,7 @@ export default function Home() {
         </Container>
       </div>
 
-      {/* === 2. PRODUK YANG PALING DI CARI-CARI (MODIFIKASI) === */}
+      {/* === 2. PRODUK YANG PALING DI CARI-CARI === */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
         
@@ -305,12 +329,11 @@ export default function Home() {
 
         <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 justify-content-center">
           {!loading && !error && featuredProducts.map((product) => (
-            // --- MODIFIKASI: Hapus <Link> dan tambahkan onClick ke <Col> ---
             <Col 
               key={product._id} 
               className="text-center"
-              onClick={() => handleShowModal(product)} // <-- Panggil modal
-              style={{ cursor: 'pointer' }} // <-- Ubah kursor
+              onClick={() => handleShowModal(product)} 
+              style={{ cursor: 'pointer' }} 
             >
               <Image
                 src={product.imageUrl}
@@ -325,13 +348,12 @@ export default function Home() {
               />
               <h6 className="fw-bold text-dark">{product.nama}</h6>
             </Col>
-            // --- AKHIR MODIFIKASI ---
           ))}
         </Row>
       </Container>
 
       
-      {/* === 3. PRODUK TERLARIS (MODIFIKASI) === */}
+      {/* === 3. PRODUK TERLARIS === */}
       <Container as="section" className="py-5 bg-light">
         <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
         
@@ -351,7 +373,7 @@ export default function Home() {
                   src={product.imageUrl}
                   alt={product.nama}    
                   style={{ height: '150px', objectFit: 'cover', cursor: 'pointer' }}
-                  onClick={() => handleShowModal(product)} // <-- Klik gambar
+                  onClick={() => handleShowModal(product)} 
                 />
                 <Card.Body
                   className="d-flex flex-column pt-3 px-3 pb-4"
@@ -360,7 +382,7 @@ export default function Home() {
                     as="h5" 
                     className="fw-bold text-dark mb-1"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => handleShowModal(product)} // <-- Klik nama
+                    onClick={() => handleShowModal(product)} 
                   >
                     {product.nama}
                   </Card.Title>
@@ -372,16 +394,14 @@ export default function Home() {
                     })}
                   </Card.Text>
                   
-                  {/* --- MODIFIKASI: Tambahkan onClick ke Tombol --- */}
                   <Button
                     variant="primary"
                     className="w-100 mt-auto rounded-3 btn-add-to-cart"
-                    onClick={() => handleShowModal(product)} // <-- Panggil modal
+                    onClick={() => handleShowModal(product)} 
                   >
                     <i className="bi bi-cart-plus"></i>
                     Tambah
                   </Button>
-                  {/* --- AKHIR MODIFIKASI --- */}
 
                 </Card.Body>
               </Card>
@@ -391,55 +411,47 @@ export default function Home() {
       </Container>
 
       
-      {/* === 4. JASA KAMI (Tidak Berubah) === */}
+      {/* === 4. JASA KAMI === */}
       <Container as="section" className="py-5" id="jasa"> 
-        {/* ... (kode Jasa Kami Anda tetap sama) ... */}
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
-        <Row className="g-custom-20 row-cols-1 row-cols-md-3">
-          {!loading && !error && services.map((service) => {
-            const message = encodeURIComponent(
-              `Halo, saya ingin bertanya tentang jasa: ${service.nama}`
-            );
-            const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`;
-
-            return (
-              <Col key={service._id} className="mb-4">
-                <Card className="text-white border-0 rounded-3 overflow-hidden">
-                  <Card.Img
-                    src={service.imageUrl}
-                    alt={service.nama}
-                    style={{ height: '250px', objectFit: 'cover' }}
-                  />
-                  <Card.ImgOverlay
-                    className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
-                    style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    }}
+        
+        {loading && (<div className="text-center"><Spinner animation="border" /></div>)}
+        {error && <p className="text-danger text-center">{error}</p>}
+        
+        <Row className="g-4 row-cols-1 row-cols-md-3">
+          {!loading && !error && services.map((service) => (
+            <Col key={service._id} className="mb-4">
+              <Card className="text-white border-0 rounded-3 overflow-hidden">
+                <Card.Img
+                  src={service.imageUrl}
+                  alt={service.nama}
+                  style={{ height: '250px', objectFit: 'cover' }}
+                />
+                <Card.ImgOverlay
+                  className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
+                  style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+                >
+                  <Card.Title as="h2" className="fw-bold mb-3">
+                    {service.nama}
+                  </Card.Title>
+                  <Button
+                    variant="primary"
+                    className="rounded-3 btn-service-wa"
+                    onClick={() => handleServiceChat(service)} 
                   >
-                    <Card.Title as="h2" className="fw-bold mb-3">
-                      {service.nama}
-                    </Card.Title>
-                    <Button
-                      variant="primary"
-                      className="rounded-3 btn-service-wa"
-                      href={whatsappUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <i className="bi bi-whatsapp" style={{ fontSize: '1.2rem' }}></i>
-                      Hubungi Kami
-                    </Button>
-                  </Card.ImgOverlay>
-                </Card>
-              </Col>
-            );
-          })}
+                    <MessageCircle size={18} className="me-2" style={{ fontSize: '1.2rem' }}/> 
+                    Hubungi Kami
+                  </Button>
+                </Card.ImgOverlay>
+              </Card>
+            </Col>
+          ))}
         </Row>
       </Container>
+
       
-      {/* === 5. SECTION TENTANG KAMI (Tidak Berubah) === */}
+      {/* === 5. SECTION TENTANG KAMI === */}
       <Container as="section" className="py-5 bg-light">
-        {/* ... (kode Tentang Kami Anda tetap sama) ... */}
         <div className="about-us-panel">
           <Row className="align-items-center g-custom-20">
             <Col md={6} className="mb-4 mb-md-0">
@@ -463,9 +475,8 @@ export default function Home() {
       </Container>
 
 
-      {/* === 6. SECTION HUBUNGI KAMI (Tidak Berubah) === */}
+      {/* === 6. SECTION HUBUNGI KAMI === */}
       <Container as="section" className="py-5" id="hubungi"> 
-        {/* ... (kode Hubungi Kami Anda tetap sama) ... */}
         <Row className="align-items-center g-custom-20">
           <Col md={6} className="mb-4 mb-md-0">
             <Image 
@@ -506,7 +517,7 @@ export default function Home() {
         </Row>
       </Container>
 
-      {/* === BARU: JSX Modal & Toast (MODIFIKASI PADA TOMBOL) === */}
+      {/* === MODAL PRODUK === */}
       <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
         <Modal.Header closeButton className="border-0">
           {selectedProduct && <Modal.Title as="h3" className="fw-bold text-dark">{selectedProduct.nama}</Modal.Title>}
@@ -536,12 +547,11 @@ export default function Home() {
                 </div>
                 {modalMessage && modalMessage.type === 'error' && (<Alert variant="danger" className="py-2 small">{modalMessage.text}</Alert>)}
                 
-                {/* --- MODIFIKASI: Tambahkan onClick ke semua tombol --- */}
                 <div className="d-flex flex-column gap-2">
                   <Button 
                     variant="primary" 
                     className="w-100 rounded-3 btn-add-to-cart" 
-                    onClick={handleAddToCart} // <-- Handler sudah ada
+                    onClick={handleAddToCart} 
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <><i className="bi bi-cart-plus me-2"></i>+ Keranjang</>}
@@ -551,7 +561,7 @@ export default function Home() {
                     className="w-100 rounded-3" 
                     style={buttonStyle} 
                     disabled={isSubmitting}
-                    onClick={handleBeliLangsung} // <-- Handler BARU
+                    onClick={handleBeliLangsung} 
                   >
                     Beli Langsung
                   </Button>
@@ -560,12 +570,11 @@ export default function Home() {
                     className="w-100 rounded-3" 
                     style={buttonStyle} 
                     disabled={isSubmitting}
-                    onClick={handleChatToko} // <-- Handler BARU
+                    onClick={handleChatToko} 
                   >
                     <i className="bi bi-chat-dots me-2"></i>Chat Toko
                   </Button>
                 </div>
-                {/* --- AKHIR MODIFIKASI --- */}
                 
               </Col>
             </Row>
@@ -578,7 +587,15 @@ export default function Home() {
           <Toast.Body className="text-white text-center fw-bold">{toastMessage}</Toast.Body>
         </Toast>
       </ToastContainer>
-      {/* ======================================================== */}
+
+      {/* === PERBAIKAN: RENDER CHAT WIDGET === */}
+      {/* Chat Widget perlu dirender di sini agar muncul */}
+      <ChatWidget 
+        productContext={chatProduct} 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+      />
+      
     </main>
   );
 }
