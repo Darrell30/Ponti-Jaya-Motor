@@ -1,11 +1,13 @@
 'use client';
 
-// 1. MODIFIKASI: Mengimpor semua yang dibutuhkan, termasuk ChatWidget
-import { Container, Row, Col, Button, Image, Card, Spinner, Form, InputGroup, Modal, Alert, Toast, ToastContainer, Nav } from 'react-bootstrap';
+import { 
+  Container, Row, Col, Button, Image, Card, Spinner, 
+  Form, InputGroup, Modal, Alert, Toast, ToastContainer, Nav 
+} from 'react-bootstrap';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Loader2, AlertTriangle, Truck, ShoppingCart, MessageCircle, Zap } from 'lucide-react'; // Menambahkan MessageCircle dan Zap
-import ChatWidget from '../components/ChatWidget'; // <-- Import ChatWidget
+import { useRouter, useSearchParams } from 'next/navigation'; // Tambahkan useSearchParams
+import { Loader2, AlertTriangle, Truck, ShoppingCart, MessageCircle, Zap } from 'lucide-react'; 
+import ChatWidget from '../components/ChatWidget'; 
 
 // --- TIPE DATA ---
 interface Product {
@@ -17,6 +19,7 @@ interface Product {
   deskripsi?: string;
   kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW';
 }
+
 interface Service {
   _id: string;
   nama: string;
@@ -24,18 +27,13 @@ interface Service {
   harga: number;
   deskripsi?: string;
 }
-const featuredProductNames = [
-  "Veleg", "Selang Rem", "Kampas Rem", "Seal Lahar Bambu",
-  "Klahar Roda", "Tabung Central", "Veleg"
-];
-const bestSellingProductNames = [
-  "Master Rem", "Kampas Rem", "Klahar Roda", "Master Central", "Tabung Central",
-];
 
 export default function ProdukPage() {
-  // 2. Inisialisasi router
   const router = useRouter();
+  const searchParams = useSearchParams(); // Hook untuk membaca URL query
+  const searchQuery = searchParams.get('q') || ''; // Ambil kata kunci pencarian
 
+  // --- STATE ---
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,13 +54,12 @@ export default function ProdukPage() {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
 
-  // === TAMBAHAN UNTUK CHAT WIDGET ===
+  // State Chat Widget
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatProduct, setChatProduct] = useState<Product | null>(null); // State yang dikirim ke ChatWidget
-  // ===================================
+  const [chatProduct, setChatProduct] = useState<Product | null>(null);
 
+  // --- FETCH DATA ---
   useEffect(() => {
-    // ... (Logika fetchProducts Anda SAMA, tidak berubah) ...
     const fetchProducts = async () => {
       try {
         setLoading(true);
@@ -87,11 +84,12 @@ export default function ProdukPage() {
         
         const serviceData = await serviceRes.json();
         
+        // Mapping dengan casting tipe agar TypeScript tidak error
         const productsWithCategory = allProducts.map((p: Product) => ({
             ...p,
             kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart'
         })) as Product[];
-        
+
         setProducts(productsWithCategory);
 
         if (serviceData.success) {
@@ -99,11 +97,9 @@ export default function ProdukPage() {
         }
 
       } catch (err: any) {
-         // Fallback to mock data if API fails
         const mockProducts: Product[] = [
-            { _id: '1', nama: 'Veleg Racing 17"', imageUrl: 'https://placehold.co/400x300/0d6efd/fff?text=Veleg+Racing', harga: 850000, stok: 5, deskripsi: 'Veleg alloy ringan dan kuat.' },
-            { _id: '2', nama: 'Selang Rem Performance', imageUrl: 'https://placehold.co/400x300/6c757d/fff?text=Selang+Rem', harga: 150000, stok: 12, deskripsi: 'Meningkatkan respons pengereman.' },
-            { _id: '3', nama: 'Kampas Rem Bendix', imageUrl: 'https://placehold.co/400x300/ffc107/000?text=Kampas+Rem', harga: 75000, stok: 30, deskripsi: 'Pengereman senyap dan efektif.' },
+            { _id: '1', nama: 'Veleg Racing 17"', imageUrl: 'https://placehold.co/400x300/0d6efd/fff?text=Veleg+Racing', harga: 850000, stok: 5, deskripsi: 'Veleg alloy ringan dan kuat.', kategori: 'Sparepart' },
+            { _id: '2', nama: 'Selang Rem Performance', imageUrl: 'https://placehold.co/400x300/6c757d/fff?text=Selang+Rem', harga: 150000, stok: 12, deskripsi: 'Meningkatkan respons pengereman.', kategori: 'Sparepart' },
           ];
         setProducts(mockProducts);
         setError(err.message);
@@ -114,6 +110,7 @@ export default function ProdukPage() {
     fetchProducts();
   }, []);
 
+  // --- HANDLERS ---
   const handleCloseModal = () => { setShowModal(false); setSelectedProduct(null); };
   const handleShowModal = (product: Product) => {
     setSelectedProduct(product);
@@ -132,7 +129,7 @@ export default function ProdukPage() {
   };
   const subtotal = selectedProduct ? selectedProduct.harga * quantity : 0;
 
-  // === handleAddToCart ===
+  // --- KERANJANG ---
   const handleAddToCart = async () => {
     setIsSubmitting(true);
     setModalMessage(null);
@@ -188,7 +185,7 @@ export default function ProdukPage() {
     }
   };
 
-  // --- Logika inti "Beli Langsung" ---
+  // --- BELI LANGSUNG ---
   const proceedToCheckout = () => {
     if (!selectedProduct) return;
     const itemToCheckout = {
@@ -206,7 +203,6 @@ export default function ProdukPage() {
     router.push('/pembayaran');
   };
 
-  // --- Handler Tombol "Beli Langsung" ---
   const handleBuyNowClick = () => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
@@ -221,12 +217,11 @@ export default function ProdukPage() {
     }
   };
   
-  // --- Digunakan oleh Modal Peringatan ---
   const executeBuyProcess = () => {
     proceedToCheckout(); 
   };
   
-  // === 7. LOGIKA CHAT TOKO AKTIF ===
+  // --- CHAT TOKO ---
   const handleChatToko = () => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
@@ -234,7 +229,6 @@ export default function ProdukPage() {
       return; 
     }
     
-    // 1. Ambil data produk minimum yang diperlukan oleh ChatWidget
     if (selectedProduct) {
         const productToSend = {
             _id: selectedProduct._id,
@@ -242,16 +236,14 @@ export default function ProdukPage() {
             imageUrl: selectedProduct.imageUrl,
             harga: selectedProduct.harga,
         };
-        setChatProduct(productToSend);
+        setChatProduct(productToSend as any); // Bypass type check for ChatWidget prop if slightly different
     } else {
-         setChatProduct(null); // Mulai chat tanpa konteks produk jika selectedProduct hilang
+         setChatProduct(null);
     }
 
-    // 2. Tutup modal produk dan buka widget chat
     handleCloseModal(); 
     setIsChatOpen(true); 
   };
-  // ------------------------------------
 
   const buttonStyle = {
     height: '48px',
@@ -262,13 +254,21 @@ export default function ProdukPage() {
     justifyContent: 'center',
   };
   
+  // === LOGIKA FILTER & SEARCH UTAMA ===
   const filteredAndSortedProducts = products
     .filter(product => {
-      if (activeCategory === 'Semua') return true;
-      if (activeCategory === 'Sparepart') return product.kategori === 'Sparepart';
-      if (activeCategory === 'Ori') return product.nama.toLowerCase().includes('ori'); 
-      if (activeCategory === 'KW') return product.nama.toLowerCase().includes('kw');
-      return true;
+      // 1. Filter Kategori
+      let categoryMatch = true;
+      if (activeCategory === 'Semua') categoryMatch = true;
+      else if (activeCategory === 'Sparepart') categoryMatch = product.kategori === 'Sparepart';
+      else if (activeCategory === 'Ori') categoryMatch = product.nama.toLowerCase().includes('ori'); 
+      else if (activeCategory === 'KW') categoryMatch = product.nama.toLowerCase().includes('kw');
+      
+      // 2. Filter Search (Nama Produk)
+      // Jika ada searchQuery (dari URL), cek apakah nama produk mengandung kata tsb
+      const searchMatch = product.nama.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return categoryMatch && searchMatch;
     })
     .sort((a, b) => {
       if (sortBy === 'Harga Terendah') {
@@ -280,20 +280,26 @@ export default function ProdukPage() {
       return 0;
     });
 
-  // --- RENDER JSX ---
   return (
     <>
-      {/* RENDER CHAT WIDGET */}
       <ChatWidget 
          isOpen={isChatOpen} 
          onClose={() => {
             setIsChatOpen(false);
-            setChatProduct(null); // Clear context when closing
+            setChatProduct(null); 
          }} 
          productContext={chatProduct} 
       />
 
       <Container className="py-5">
+        {/* Tampilan jika sedang mencari */}
+        {searchQuery && (
+           <div className="mb-4">
+              <h4 className="text-dark">Hasil pencarian untuk: <span className="fw-bold text-primary">"{searchQuery}"</span></h4>
+              <Button variant="link" className="p-0 text-decoration-none" onClick={() => router.push('/produk')}>Reset Pencarian</Button>
+           </div>
+        )}
+
         <Row className="mb-4 align-items-center">
           <Col md={8}>
             <Nav variant="pills" className="filter-pills" activeKey={activeCategory}>
@@ -333,13 +339,13 @@ export default function ProdukPage() {
                   variant="top"
                   src={product.imageUrl}
                   alt={product.nama}    
-                  style={{ height: '180px', objectFit: 'cover' }}
+                  style={{ height: '180px', objectFit: 'cover', cursor: 'pointer' }}
                   onClick={() => handleShowModal(product)}
                 />
                 <Card.Body className="d-flex flex-column">
                   <div className="d-flex justify-content-between align-items-center">
-                    <div className="me-2">
-                      <Card.Title as="h6" className="fw-bold text-dark mb-1 text-truncate">
+                    <div className="me-2" style={{ minWidth: 0 }}>
+                      <Card.Title as="h6" className="fw-bold text-dark mb-1 text-truncate" style={{ cursor: 'pointer' }} onClick={() => handleShowModal(product)}>
                         {product.nama}
                       </Card.Title>
                       <Card.Text className="text-dark fw-bold small mb-0">
@@ -353,10 +359,11 @@ export default function ProdukPage() {
                     <div>
                       <Button
                         variant="primary"
-                        className="btn-cart-icon"
+                        className="btn-cart-icon rounded-circle d-flex align-items-center justify-content-center"
+                        style={{ width: '35px', height: '35px', padding: 0 }}
                         onClick={() => handleShowModal(product)}
                       >
-                        <ShoppingCart size={20} />
+                        <ShoppingCart size={18} />
                       </Button>
                     </div>
                   </div>
@@ -365,9 +372,9 @@ export default function ProdukPage() {
             </Col>
           ))}
           {!loading && filteredAndSortedProducts.length === 0 && (
-            <Col className="text-center py-5">
+            <Col className="text-center py-5 w-100">
               <h5 className="fw-bold text-dark">Oops! Produk tidak ditemukan</h5>
-              <p className="text-secondary">Coba ganti kata kunci filter Anda.</p>
+              <p className="text-secondary">Coba ganti kata kunci pencarian atau filter Anda.</p>
             </Col>
           )}
         </Row>
@@ -418,7 +425,6 @@ export default function ProdukPage() {
                     <Zap size={18} className="me-2" fill="currentColor" /> Beli Langsung
                   </Button>
 
-                  {/* TOMBOL CHAT TOKO AKTIF */}
                   <Button 
                     variant="outline-secondary" 
                     className="w-100 rounded-3" 
