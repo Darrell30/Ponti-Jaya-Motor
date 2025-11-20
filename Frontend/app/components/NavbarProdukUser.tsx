@@ -1,10 +1,30 @@
+// app/components/NavbarProdukUser.tsx
 'use client';
 
 import { Container, Row, Col, Button, Form, InputGroup } from 'react-bootstrap';
 import Link from 'next/link';
-import { ShoppingCart } from 'lucide-react'; // Tambahkan icon cart
+import { ShoppingCart } from 'lucide-react';
+import { useState } from 'react'; // [cite: 3]
+import { useRouter, useSearchParams } from 'next/navigation'; // Import navigasi
 
 export default function NavbarProdukUser() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
+
+  // Fungsi untuk menangani pencarian
+  const handleSearch = (e: React.FormEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    // Redirect ke halaman produk dengan query param
+    router.push(`/produk?q=${encodeURIComponent(searchTerm)}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch(e);
+    }
+  };
+
   return (
     <div className="sticky-product-header">
       <Container>
@@ -20,18 +40,26 @@ export default function NavbarProdukUser() {
 
           <Col md={5}>
             <InputGroup className="search-input-group">
-              <InputGroup.Text className="border-0 bg-white">
+              {/* Tambahkan onClick pada icon search */}
+              <InputGroup.Text 
+                className="border-0 bg-white" 
+                style={{ cursor: 'pointer' }}
+                onClick={handleSearch}
+              >
                 <i className="bi bi-search"></i>
               </InputGroup.Text>
               <Form.Control
                 className="border-0"
                 placeholder="Cari di Ponti Jaya Motor"
                 style={{ boxShadow: 'none' }}
+                // Binding value ke state
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
               />
             </InputGroup>
           </Col>
 
-          {/* PERBAIKAN DI SINI: Bungkus Button di dalam Link */}
           <Col md={4} className="d-flex justify-content-end gap-2">
             <Link href="/keranjang" passHref legacyBehavior>
               <Button 
