@@ -38,26 +38,19 @@ cloudinary.config({
 });
 console.log('✅ Cloudinary configured successfully!');
 
-// Konfigurasi Nodemailer (UPDATED)
+// Konfigurasi Nodemailer (Versi Stabil - Brevo/Sendinblue)
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Gunakan SSL
+    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: false, // Port 587 pakai secure: false
     auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS
+        user: process.env.SMTP_USER, // Email login Brevo
+        pass: process.env.SMTP_PASS, // Kunci SMTP dari Brevo
     },
-    // --- PENGATURAN JARINGAN TAMBAHAN (THE FIX) ---
+    // Opsional: matikan rejectUnauthorized jika masih ada isu sertifikat
     tls: {
-        // Jangan gagal jika sertifikatnya aneh (opsional, tapi membantu di cloud)
-        rejectUnauthorized: false 
-    },
-    // Paksa menggunakan IPv4 saja (KUNCI MASALAHNYA DISINI)
-    family: 4, 
-    // Tambahkan waktu tunggu agar tidak cepat timeout
-    connectionTimeout: 10000, // 10 detik
-    greetingTimeout: 5000,    // 5 detik
-    socketTimeout: 10000      // 10 detik
+        rejectUnauthorized: false
+    }
 });
 
 transporter.verify((error, success) => {
