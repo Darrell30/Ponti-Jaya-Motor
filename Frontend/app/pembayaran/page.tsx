@@ -192,7 +192,7 @@ export default function PembayaranPage() {
     setAddress(tempAddress);
     if (userId) {
       try {
-        await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/users/profile', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: userId, alamat: tempAddress })
@@ -252,7 +252,7 @@ export default function PembayaranPage() {
 
     try {
       // 1. Panggil API Anda untuk membuat pesanan & dapatkan token
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/orders/create', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)

@@ -75,7 +75,7 @@ export default function ChatWidget({ isOpen, onClose, productContext }: ChatWidg
     }
 
     try {
-      await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/messages/send', {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages/send`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({

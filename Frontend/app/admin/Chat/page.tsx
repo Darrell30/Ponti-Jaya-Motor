@@ -15,7 +15,7 @@ export default function AdminChatPage() {
   // 1. Ambil Daftar User (Tidak berubah)
   const fetchConversations = async () => {
     try {
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/messages/conversations');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages/conversations`);
       const data = await res.json();
       if (data.success) setConversations(data.data);
     } catch (err) { console.error(err); }
@@ -62,7 +62,7 @@ export default function AdminChatPage() {
     e.preventDefault();
     if (!inputText.trim() || !selectedUser) return;
     try {
-      await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/messages/send', {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages/send`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
