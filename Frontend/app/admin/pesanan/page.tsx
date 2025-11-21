@@ -296,9 +296,6 @@ export default function AdminPesananPage() {
                     <option key={status} value={status}>{status}</option>
                 ))}
             </Form.Select>
-            <Form.Text className="text-muted">
-                *Status "Selesai" hanya dapat dilakukan oleh User saat konfirmasi barang diterima.
-            </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
