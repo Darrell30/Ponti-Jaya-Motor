@@ -33,7 +33,7 @@ export default function AdminLayout({
   useEffect(() => {
     if (!isAuthorized) return;
     setIsLoadingStatus(true);
-    fetch('http://localhost:5000/api/store/status')
+    fetch('${process.env.NEXT_PUBLIC_API_URL}/api/store/status')
       .then(res => res.json())
       .then(data => {
         if (data.success) setIsStoreOpen(data.isStoreOpen);
@@ -58,7 +58,7 @@ export default function AdminLayout({
     const newState = !isStoreOpen; 
 
     try {
-      const response = await fetch('http://localhost:5000/api/store/status', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/store/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isStoreOpen: newState })

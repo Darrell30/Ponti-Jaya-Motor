@@ -93,8 +93,8 @@ export default function Home() {
     const fetchAllData = async () => {
       try {
         const [sparepartRes, serviceRes] = await Promise.all([
-          fetch('http://localhost:5000/api/spareparts'),
-          fetch('http://localhost:5000/api/services') 
+          fetch('${process.env.NEXT_PUBLIC_API_URL}/api/spareparts'),
+          fetch('${process.env.NEXT_PUBLIC_API_URL}/api/services') // <-- PANGGILAN API BARU
         ]);
 
         if (!sparepartRes.ok || !serviceRes.ok) {
@@ -225,7 +225,7 @@ export default function Home() {
       quantity: quantity
     };
     try {
-      const response = await fetch('http://localhost:5000/api/cart/add', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cartItemData)

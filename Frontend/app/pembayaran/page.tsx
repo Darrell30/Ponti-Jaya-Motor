@@ -123,7 +123,7 @@ export default function PembayaranPage() {
   // Fungsi fetchProfile (SAMA)
   const fetchProfile = async (currentUserId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/users/profile?userId=${currentUserId}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile?userId=${currentUserId}`);
       const data = await response.json();
       if (data.success && data.data.alamat) {
         setAddress(data.data.alamat); 
@@ -192,7 +192,7 @@ export default function PembayaranPage() {
     setAddress(tempAddress);
     if (userId) {
       try {
-        await fetch('http://localhost:5000/api/users/profile', {
+        await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/users/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: userId, alamat: tempAddress })
@@ -252,7 +252,7 @@ export default function PembayaranPage() {
 
     try {
       // 1. Panggil API Anda untuk membuat pesanan & dapatkan token
-      const response = await fetch('http://localhost:5000/api/orders/create', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/orders/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)

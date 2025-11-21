@@ -57,7 +57,7 @@ export default function PesananPage() {
     setError(null);
     try {
       // Panggil API BARU untuk admin
-      const response = await fetch('http://localhost:5000/api/orders/all');
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/orders/all');
       if (!response.ok) throw new Error('Gagal mengambil data pesanan');
       
       const data = await response.json();
@@ -119,7 +119,7 @@ export default function PesananPage() {
     setIsUpdating(true);
     try {
       // Panggil API BARU untuk update status
-      const response = await fetch('http://localhost:5000/api/orders/status', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/orders/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

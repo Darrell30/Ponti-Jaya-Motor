@@ -66,7 +66,7 @@ export default function ProdukPage() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/spareparts');
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/spareparts');
       if (!response.ok) throw new Error('Gagal mengambil data');
       const data = await response.json();
       if (data.success) setProducts(data.data);
@@ -96,7 +96,7 @@ export default function ProdukPage() {
     try {
       // Panggil API Delete di Backend
       // (Ini sekarang akan memanggil rute baru Anda yang juga menghapus dari Cloudinary)
-      const response = await fetch(`http://localhost:5000/api/spareparts/${productToDelete._id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts/${productToDelete._id}`, {
         method: 'DELETE',
       });
 
@@ -170,7 +170,7 @@ export default function ProdukPage() {
       if (editFormData.imageFile) {
         const imageFormData = new FormData();
         imageFormData.append('file', editFormData.imageFile);
-        const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+        const uploadResponse = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/upload', {
           method: 'POST',
           body: imageFormData,
         });
@@ -187,7 +187,7 @@ export default function ProdukPage() {
         imageUrl: finalImageUrl,
       };
 
-      const updateResponse = await fetch(`http://localhost:5000/api/spareparts/${editFormData._id}`, {
+      const updateResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts/${editFormData._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData),
@@ -252,7 +252,7 @@ export default function ProdukPage() {
     try {
       const imageFormData = new FormData();
       imageFormData.append('file', newFormData.imageFile); 
-      const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+      const uploadResponse = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/upload', {
         method: 'POST',
         body: imageFormData, 
       });
@@ -267,7 +267,7 @@ export default function ProdukPage() {
         imageUrl: uploadData.url,
       };
 
-      const createResponse = await fetch('http://localhost:5000/api/spareparts', {
+      const createResponse = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/spareparts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData),

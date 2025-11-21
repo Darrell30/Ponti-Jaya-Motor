@@ -46,7 +46,7 @@ export default function ChatWidget({ isOpen, onClose, productContext }: ChatWidg
 
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/messages/history?userId=${userInfo.userId}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages/history?userId=${userInfo.userId}`);
         const data = await res.json();
         if (data.success) setMessages(data.data);
       } catch (err) { console.error(err); }
@@ -75,7 +75,7 @@ export default function ChatWidget({ isOpen, onClose, productContext }: ChatWidg
     }
 
     try {
-      await fetch('http://localhost:5000/api/messages/send', {
+      await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/messages/send', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({

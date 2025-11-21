@@ -81,7 +81,7 @@ function NavbarUser() {
     setModalMessage(null);
     try {
       // Anda perlu mengganti ini dengan endpoint yang benar jika sudah ada
-      const response = await fetch(`http://localhost:5000/api/users/profile?userId=${userId}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile?userId=${userId}`);
       const data = await response.json();
       
       if (!response.ok || !data.success) {
@@ -131,7 +131,7 @@ function NavbarUser() {
     setModalMessage(null);
     try {
       // Anda perlu mengganti ini dengan endpoint yang benar jika sudah ada
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/users/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

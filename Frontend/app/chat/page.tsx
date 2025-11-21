@@ -48,7 +48,7 @@ export default function UserChatPage() {
   const fetchMessages = async () => {
     if (!userInfo) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/messages/history?userId=${userInfo.userId}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages/history?userId=${userInfo.userId}`);
       const data = await res.json();
       if (data.success) {
         setMessages(data.data);
@@ -90,7 +90,7 @@ export default function UserChatPage() {
     }
 
     try {
-      await fetch('http://localhost:5000/api/messages/send', {
+      await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/messages/send', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
