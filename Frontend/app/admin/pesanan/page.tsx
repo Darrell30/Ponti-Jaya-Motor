@@ -1,4 +1,3 @@
-// app/admin/pesanan/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -18,6 +17,8 @@ type OrderStatus = 'Menunggu Pembayaran' | 'Diproses' | 'Dikirim' | 'Tiba' | 'Se
 
 const allStatus: OrderStatus[] = ['Menunggu Pembayaran', 'Diproses', 'Dikirim', 'Tiba', 'Selesai', 'Dibatalkan'];
 
+const filterTabs: string[] = ['Semua', 'Menunggu Pembayaran', 'Diproses', 'Dikirim', 'Tiba', 'Dibatalkan'];
+
 const adminSelectableStatus: OrderStatus[] = ['Menunggu Pembayaran', 'Diproses', 'Dikirim', 'Tiba', 'Dibatalkan'];
 
 interface AdminOrder {
@@ -36,7 +37,6 @@ interface AdminOrder {
 }
 
 export default function AdminPesananPage() {
-
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,6 @@ export default function AdminPesananPage() {
     setLoading(true);
     setError(null);
     try {
-
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/orders/all`);
       if (!response.ok) throw new Error('Gagal mengambil data pesanan');
       
@@ -75,7 +74,9 @@ export default function AdminPesananPage() {
   };
 
   const filteredOrders = orders.filter((order) => {
+
     const statusMatch = filterStatus === "Semua" ? true : order.status === filterStatus;
+    
     const searchLower = searchTerm.toLowerCase();
     const searchMatch = 
         order._id.toLowerCase().includes(searchLower) || 
@@ -89,7 +90,7 @@ export default function AdminPesananPage() {
       case 'Menunggu Pembayaran': return 'warning';
       case 'Diproses': return 'info';
       case 'Dikirim': return 'primary';
-      case 'Tiba': return 'success';
+      case 'Tiba': return 'success'; 
       case 'Selesai': return 'success';
       case 'Dibatalkan': return 'danger';
       default: return 'secondary';
@@ -105,7 +106,7 @@ export default function AdminPesananPage() {
 
   const handleOpenModal = (order: AdminOrder) => {
     setSelectedOrder(order);
-    setNewStatus(order.status);
+    setNewStatus(order.status); 
     setShowStatusModal(true);
   };
 
@@ -149,41 +150,46 @@ export default function AdminPesananPage() {
         </Button>
       </div>
 
-      {/* --- SEARCH & FILTER BAR --- */}
+      {/* --- SEARCH & FILTER BAR (LAYOUT DIPERBAIKI) --- */}
       <Card className="border-0 shadow-sm rounded-4 mb-4">
-        <Card.Body className="p-3">
-            <Row className="g-3 align-items-center">
-                <Col md={4}>
-                    <InputGroup>
-                        <InputGroup.Text className="bg-light border-end-0"><Search size={18} /></InputGroup.Text>
+        <Card.Body className="p-4">
+            <div className="d-flex flex-column gap-3">
+                {/* 1. Search Bar (Full Width) */}
+                <div className="w-100">
+                    <InputGroup className="shadow-sm rounded-3 overflow-hidden border">
+                        <InputGroup.Text className="bg-white border-0 px-3">
+                            <Search size={18} className="text-muted" />
+                        </InputGroup.Text>
                         <Form.Control 
                             type="text" 
-                            placeholder="Cari ID Pesanan / User..." 
-                            className="border-start-0 bg-light"
+                            placeholder="Cari ID Pesanan atau Nama Pembeli..." 
+                            className="border-0 py-2 shadow-none"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </InputGroup>
-                </Col>
-                <Col md={8}>
-                    <Nav variant="pills" className="justify-content-md-end gap-2 overflow-auto flex-nowrap" activeKey={filterStatus}>
-                        <Nav.Item>
-                            <Nav.Link eventKey="Semua" onClick={() => setFilterStatus("Semua")} style={{cursor:'pointer'}}>Semua</Nav.Link>
+                </div>
+
+                {/* 2. Filter Tabs (Dibawah Search) */}
+                <Nav 
+                    variant="pills" 
+                    className="gap-2 overflow-auto flex-nowrap pb-1" // flex-nowrap agar bisa discroll horizontal di HP
+                    activeKey={filterStatus}
+                >
+                    {filterTabs.map(tab => (
+                        <Nav.Item key={tab}>
+                            <Nav.Link 
+                                eventKey={tab} 
+                                onClick={() => setFilterStatus(tab)}
+                                style={{cursor:'pointer', whiteSpace:'nowrap'}}
+                                className="rounded-pill px-3 py-2 small fw-bold"
+                            >
+                                {tab}
+                            </Nav.Link>
                         </Nav.Item>
-                        {allStatus.map(status => (
-                            <Nav.Item key={status}>
-                                <Nav.Link 
-                                    eventKey={status} 
-                                    onClick={() => setFilterStatus(status)}
-                                    style={{cursor:'pointer', whiteSpace:'nowrap'}}
-                                >
-                                    {status}
-                                </Nav.Link>
-                            </Nav.Item>
-                        ))}
-                    </Nav>
-                </Col>
-            </Row>
+                    ))}
+                </Nav>
+            </div>
         </Card.Body>
       </Card>
 
@@ -196,7 +202,10 @@ export default function AdminPesananPage() {
       ) : (
         <div className="d-flex flex-column gap-3">
           {filteredOrders.length === 0 ? (
-             <Alert variant="light" className="text-center py-5 shadow-sm border-0">Tidak ada pesanan ditemukan.</Alert>
+             <Alert variant="light" className="text-center py-5 shadow-sm border-0 rounded-4">
+                <div className="text-muted mb-2">Tidak ada pesanan ditemukan.</div>
+                <small>Coba ubah kata kunci pencarian atau filter status.</small>
+             </Alert>
           ) : (
              filteredOrders.map((order) => (
                 <Card key={order._id} className="border-0 shadow-sm rounded-4 overflow-hidden">
@@ -259,7 +268,6 @@ export default function AdminPesananPage() {
                   </Card.Body>
 
                   <Card.Footer className="bg-white border-top p-3 text-end">
-                      {/* TOMBOL UBAH STATUS (MUNCUL UNTUK SEMUA STATUS KECUALI SELESAI/BATAL) */}
                       {order.status !== 'Selesai' && order.status !== 'Dibatalkan' ? (
                           <Button 
                             variant="primary" 
@@ -269,7 +277,7 @@ export default function AdminPesananPage() {
                               <Edit3 size={16} className="me-2" /> Ubah Status
                           </Button>
                       ) : (
-                          <span className="text-muted small fst-italic">Pesanan {order.status.toLowerCase()}</span>
+                          <span className="text-muted small fst-italic">Status: {order.status}</span>
                       )}
                   </Card.Footer>
                 </Card>
@@ -291,7 +299,6 @@ export default function AdminPesananPage() {
                 onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
                 className="py-2"
             >
-                {/* DISINI PERUBAHANNYA: Hanya Mapping status yang diizinkan (Tanpa Selesai) */}
                 {adminSelectableStatus.map((status) => (
                     <option key={status} value={status}>{status}</option>
                 ))}
