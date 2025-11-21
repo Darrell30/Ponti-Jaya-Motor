@@ -366,7 +366,8 @@ const server = http.createServer(async (req, res) => {
             await Otp.deleteMany({ email });
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             await transporter.sendMail({
-                from: `"Ponti Jaya Motor" <${process.env.GMAIL_USER}>`,
+                from: `"Ponti Jaya Motor" <${process.env.SMTP_USER}>`,
+                
                 to: email,
                 subject: 'Kode Verifikasi Anda - Ponti Jaya Motor',
                 text: `Kode verifikasi Anda adalah: ${otp}`,
