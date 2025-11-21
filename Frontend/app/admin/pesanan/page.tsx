@@ -303,9 +303,6 @@ export default function AdminPesananPage() {
                     <option key={status} value={status}>{status}</option>
                 ))}
             </Form.Select>
-            <Form.Text className="text-muted d-block mt-2 small">
-                Catatan: Status "Selesai" hanya dapat dikonfirmasi oleh pembeli.
-            </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
