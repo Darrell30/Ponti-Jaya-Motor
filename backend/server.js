@@ -37,22 +37,24 @@ cloudinary.config({
 });
 console.log('✅ Cloudinary configured successfully!');
 
-// Konfigurasi Nodemailer (FIX FINAL: Port 465 SSL + IPv4)
+// Konfigurasi Nodemailer (FIX TIMEOUT: Pakai Port 587 + IPv4)
 const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 465,              // GANTI KE 465 (Lebih stabil di Cloud)
-    secure: true,           // WAJIB TRUE untuk port 465
+    host: 'smtp-relay.brevo.com', // Host Brevo
+    port: 587,                    // Gunakan Port 587 (Lebih stabil dibanding 465)
+    secure: false,                // Port 587 pakai secure: false
     auth: {
-        user: process.env.SMTP_USER, 
+        user: process.env.SMTP_USER, // Pastikan variables ini ada di Railway
         pass: process.env.SMTP_PASS, 
     },
+    // --- BAGIAN INI YANG MEMPERBAIKI ERROR TIMEOUT ---
     tls: {
         rejectUnauthorized: false, // Mencegah error sertifikat
+        ciphers: 'SSLv3'
     },
-    family: 4,              // WAJIB: Memaksa IPv4
-    connectionTimeout: 20000, // Naikkan ke 20 detik
-    greetingTimeout: 20000,   // Naikkan ke 20 detik
-    debug: true,
+    family: 4,              // <--- WAJIB ADA: Memaksa pakai IPv4 agar tidak macet
+    connectionTimeout: 10000, // Waktu tunggu maksimal 10 detik
+    greetingTimeout: 5000,
+    debug: true,            // Nyalakan log debug
     logger: true
 });
 
