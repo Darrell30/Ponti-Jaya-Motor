@@ -40,14 +40,15 @@ console.log('✅ Cloudinary configured successfully!');
 
 // Konfigurasi Nodemailer (UPDATED)
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com', // Kita definisikan host manual
-    port: 587,              // Pakai port 587 (lebih aman untuk Railway)
-    secure: false,          // false untuk port 587 (gunakan STARTTLS)
-    requireTLS: true,       // Paksa penggunaan enkripsi TLS
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_PASS
-    }
+    },
+    logger: true,
+    debug: true
 });
 
 transporter.verify((error, success) => {
