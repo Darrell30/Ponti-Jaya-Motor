@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const { v2: cloudinary } = require('cloudinary');
 const busboy = require('busboy');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
+// const nodemailer = require('nodemailer'); // Tidak dipakai lagi karena ganti ke API HTTP
 
 // --- 1. IMPORT LIBRARY MIDTRANS ---
 const midtransClient = require('midtrans-client');
@@ -17,15 +17,22 @@ const Otp = require('./models/Otp');
 const Cart = require('./models/Cart'); 
 const StoreConfig = require('./models/StoreConfig');
 const Order = require('./models/Order');
-const Message = require('./models/Message'); // Pastikan model Message ada
+const Message = require('./models/Message'); 
 
 // Variabel Lingkungan
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI; 
 
 console.log('--- Server Start Info ---');
 console.log(`Port: ${PORT}`);
 console.log('MongoDB URI Status:', MONGO_URI ? 'LOADED' : 'NOT FOUND.');
+
+// Cek API Key Brevo
+if (!process.env.BREVO_API_KEY) {
+    console.warn('⚠️  PERINGATAN: BREVO_API_KEY belum diset di .env! OTP tidak akan jalan.');
+} else {
+    console.log('✅ Brevo API Key: DETECTED');
+}
 console.log('-------------------------');
 
 // Konfigurasi Cloudinary
@@ -37,34 +44,17 @@ cloudinary.config({
 });
 console.log('✅ Cloudinary configured successfully!');
 
-// --- KONFIGURASI NODEMAILER (BREVO) ---
-const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com', 
-    port: 587,                    // Pastikan pakai 587 untuk Brevo
-    secure: false,                // False untuk port 587
-    auth: {
-        user: process.env.SMTP_USER, // Pastikan ini sesuai dengan .env
-        pass: process.env.SMTP_PASS, // Pastikan ini sesuai dengan .env
-    },
-    tls: {
-        rejectUnauthorized: false, 
-        ciphers: 'SSLv3'
-    },
-    // Opsi Jaringan untuk mencegah Timeout
-    family: 4,              // Memaksa IPv4
-    connectionTimeout: 20000, // Diperpanjang ke 20 detik
-    greetingTimeout: 10000,   // Diperpanjang ke 10 detik
-    socketTimeout: 20000,     // Timeout socket
-    debug: true,            
-    logger: true
-});
-
-
-
-transporter.verify((error, success) => {
-    if (error) { console.error('❌ Nodemailer Config Error:', error.message); }
-    else { console.log('✅ Nodemailer (Email) siap digunakan!'); }
-});
+/* ================================================================
+   CATATAN PERUBAHAN: 
+   Bagian Nodemailer (SMTP) dikomentari/dinonaktifkan sepenuhnya 
+   untuk mencegah error TIMEOUT saat startup.
+   Kita menggantinya dengan fetch HTTP di bagian routing OTP.
+   ================================================================
+*/
+/*
+const transporter = nodemailer.createTransport({ ... });
+transporter.verify(...); 
+*/
 
 // --- 2. INISIALISASI MIDTRANS SNAP & CORE API ---
 const snap = new midtransClient.Snap({
@@ -73,7 +63,6 @@ const snap = new midtransClient.Snap({
     clientKey : process.env.MIDTRANS_CLIENT_KEY
 });
 
-// Core API untuk Webhook
 const coreApi = new midtransClient.CoreApi({
     isProduction : false, 
     serverKey : process.env.MIDTRANS_SERVER_KEY,
@@ -295,7 +284,9 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // OTP
+    // ==========================================================
+    // MODIFIKASI: SEND OTP VIA BREVO HTTP API (Bukan SMTP)
+    // ==========================================================
     else if (path === '/api/send-otp' && method === 'POST') {
         try {
             const { email } = await getRequestBody(req);
@@ -304,23 +295,51 @@ const server = http.createServer(async (req, res) => {
             const existingUser = await User.findOne({ email });
             if (existingUser) return sendResponse(res, 400, { success: false, message: 'Email sudah terdaftar' });
             
+            // Hapus OTP lama
             await Otp.deleteMany({ email });
+            
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             
-            await transporter.sendMail({
-                from: `"Ponti Jaya Motor" <${process.env.SMTP_USER}>`,
-                to: email,
-                subject: 'Kode Verifikasi - Ponti Jaya Motor',
-                text: `Kode verifikasi: ${otp}`,
-                html: `<b>Kode verifikasi: ${otp}</b><br><p>Berlaku 5 menit.</p>` 
+            // --- START: KIRIM VIA API (ANTI BLOKIR) ---
+            const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'api-key': process.env.BREVO_API_KEY, // API KEY BARU (Bukan SMTP Password)
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sender: { 
+                        name: "Ponti Jaya Motor", 
+                        email: process.env.SMTP_USER || "no-reply@pontijayamotor.com" // Pastikan email ini terverifikasi di Brevo
+                    },
+                    to: [{ email: email }],
+                    subject: "Kode Verifikasi - Ponti Jaya Motor",
+                    htmlContent: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px;">
+                            <h2>Kode Verifikasi Anda</h2>
+                            <p>Silakan gunakan kode berikut untuk mendaftar:</p>
+                            <h1 style="letter-spacing: 5px; color: #333;">${otp}</h1>
+                            <p>Kode berlaku selama 5 menit.</p>
+                        </div>
+                    `
+                })
             });
-            
+
+            if (!response.ok) {
+                const errData = await response.json();
+                console.error('[Brevo API Error]', errData);
+                throw new Error(`Gagal kirim email: ${errData.message || 'Unknown Error'}`);
+            }
+            // --- END: KIRIM VIA API ---
+
             await Otp.create({ email, otp });
-            console.log(`[OTP] Terkirim ke ${email}`);
+            console.log(`[OTP] Sukses terkirim ke ${email} via API`);
+            
             sendResponse(res, 200, { success: true, message: `OTP terkirim ke ${email}` });
         } catch (error) {
-            console.error('[OTP Error]', error);
-            sendResponse(res, 500, { success: false, message: 'Gagal kirim OTP' });
+            console.error('[OTP Error - Full]', error);
+            sendResponse(res, 500, { success: false, message: 'Gagal kirim OTP: ' + error.message });
         }
     }
 
@@ -400,7 +419,7 @@ const server = http.createServer(async (req, res) => {
         } catch (error) { sendResponse(res, 500, { success: false }); }
     }
 
-    // CART (Simple Routes)
+    // CART
     else if (path.startsWith('/api/cart')) {
         try {
             if (path === '/api/cart' && method === 'GET') {
@@ -437,7 +456,7 @@ const server = http.createServer(async (req, res) => {
         } catch (e) { sendResponse(res, 500, { success: false }); }
     }
 
-    // ORDERS (GET ALL & STATUS)
+    // ORDERS
     else if (path === '/api/orders/all' && method === 'GET') {
         try {
             const orders = await Order.find({}).populate('user', 'username email').sort({ createdAt: -1 });
@@ -486,7 +505,7 @@ const server = http.createServer(async (req, res) => {
         } catch (e) { sendResponse(res, 500, { success: false }); }
     }
 
-    // --- CREATE ORDER (MIDTRANS) DENGAN FIX ORDER ID ---
+    // CREATE ORDER (MIDTRANS)
     else if (path === '/api/orders/create' && method === 'POST') {
         console.log('[0] POST /api/orders/create (Midtrans)...');
         try {
@@ -560,16 +579,13 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // ==========================================================
-    // FIX 2: WEBHOOK MIDTRANS (DENGAN FIX PEMBERSIHAN ID)
-    // ==========================================================
+    // WEBHOOK MIDTRANS
     else if (path === '/api/midtrans/notifikasi' && method === 'POST') {
         console.log('[Webhook] Menerima notifikasi...');
         try {
             const notificationBody = await getRequestBody(req);
-            const midtransOrderId = notificationBody.order_id; // ID Panjang (Raw)
+            const midtransOrderId = notificationBody.order_id; 
             
-            // 1. Bersihkan ID untuk ke Database (Hapus suffix timestamp)
             let dbOrderId = midtransOrderId;
             if (midtransOrderId && midtransOrderId.includes('-')) {
                 dbOrderId = midtransOrderId.split('-')[0]; 
@@ -579,18 +595,15 @@ const server = http.createServer(async (req, res) => {
 
             console.log(`[Webhook] Raw: ${midtransOrderId} -> Clean DB ID: ${dbOrderId}`);
 
-            // 2. Cek status ke Midtrans pakai ID PANJANG (Raw)
             const transactionStatusResponse = await coreApi.transaction.status(midtransOrderId);
             const { transaction_status, fraud_status, payment_type } = transactionStatusResponse;
             
-            // 3. Cek DB pakai ID PENDEK (Clean)
             const order = await Order.findById(dbOrderId);
             if (!order) {
                 console.warn(`[Webhook] Order ${dbOrderId} tidak ditemukan di DB.`);
                 return sendResponse(res, 404, { success: false });
             }
 
-            // Tentukan Status
             let newStatus = order.status;
             if (transaction_status === 'capture') {
                 if (fraud_status === 'accept') newStatus = 'Diproses';
@@ -602,7 +615,6 @@ const server = http.createServer(async (req, res) => {
                 newStatus = 'Dibatalkan';
             }
 
-            // Update DB
             if (order.status !== newStatus) {
                 order.status = newStatus;
                 order.paymentMethod = payment_type; 
@@ -621,12 +633,11 @@ const server = http.createServer(async (req, res) => {
             sendResponse(res, 200, { success: true });
         } catch (error) {
             console.error('[Webhook Error]', error.message);
-            // Tetap kirim 200 agar Midtrans tidak retry terus-menerus
             sendResponse(res, 200, { success: false, message: 'Handled Error' }); 
         }
     }
 
-    // MESSAGES (CHAT)
+    // MESSAGES
     else if (path === '/api/messages/send' && method === 'POST') {
         try {
             const { senderId, senderName, receiverId, text, isFromAdmin } = await getRequestBody(req);
