@@ -128,7 +128,7 @@ export default function KeranjangPage() {
       )
     );
     try {
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/update', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, cartItemId, quantity: newQuantity })
@@ -152,7 +152,7 @@ export default function KeranjangPage() {
       return newSelected;
     });
     try {
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/remove', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart/remove`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, cartItemId })
@@ -266,7 +266,7 @@ export default function KeranjangPage() {
     
     try {
       // Panggil API untuk update profil HANYA dengan alamat
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/users/profile', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

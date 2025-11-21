@@ -93,8 +93,8 @@ export default function Home() {
     const fetchAllData = async () => {
       try {
         const [sparepartRes, serviceRes] = await Promise.all([
-          fetch('${process.env.NEXT_PUBLIC_API_URL}/api/spareparts'),
-          fetch('${process.env.NEXT_PUBLIC_API_URL}/api/services') // <-- PANGGILAN API BARU
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`) // <-- PANGGILAN API BARU
         ]);
 
         if (!sparepartRes.ok || !serviceRes.ok) {
