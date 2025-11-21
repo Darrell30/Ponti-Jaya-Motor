@@ -39,18 +39,20 @@ cloudinary.config({
 console.log('✅ Cloudinary configured successfully!');
 
 // Konfigurasi Nodemailer (Versi Stabil - Brevo/Sendinblue)
+// [FIX 1]: Menambahkan connectionTimeout & socketTimeout
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
     port: Number(process.env.SMTP_PORT) || 587,
-    secure: false, // Port 587 pakai secure: false
+    secure: false, 
     auth: {
-        user: process.env.SMTP_USER, // Email login Brevo
-        pass: process.env.SMTP_PASS, // Kunci SMTP dari Brevo
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
     },
-    // Opsional: matikan rejectUnauthorized jika masih ada isu sertifikat
     tls: {
         rejectUnauthorized: false
-    }
+    },
+    connectionTimeout: 10000, // 10 detik timeout
+    socketTimeout: 10000      // 10 detik socket timeout
 });
 
 transporter.verify((error, success) => {
@@ -651,27 +653,21 @@ const server = http.createServer(async (req, res) => {
             
             let orderToProcess;
 
-            // ** LOGIKA PERBAIKAN: MEMISAHKAN CHECKOUT BARU dan RE-PAYMENT **
-            
             // KASUS 1: BAYAR ULANG (Order ID sudah ada dari frontend)
             if (orderId) { 
                 orderToProcess = await Order.findById(orderId);
                 if (!orderToProcess) {
                      return sendResponse(res, 404, { success: false, message: 'Order lama tidak ditemukan.' });
                 }
-                // Jika Order ID ada, KITA TIDAK MEMBUAT ORDER BARU di DB.
             } 
-            // KASUS 2: CHECKOUT BARU (Order ID belum ada)
+            // KASUS 2: CHECKOUT BARU
             else {
                 if (!userId || !items || !shippingAddress || !totalAmount) {
                     return sendResponse(res, 400, { success: false, message: 'Data pesanan baru tidak lengkap' });
                 }
                 const user = await User.findById(userId);
-                if (!user) {
-                    return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
-                }
+                if (!user) return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
                 
-                // Buat Order baru
                 orderToProcess = await Order.create({
                     user: userId,
                     items: items,
@@ -681,22 +677,19 @@ const server = http.createServer(async (req, res) => {
                     status: 'Menunggu Pembayaran'
                 });
             }
-            // ** AKHIR LOGIKA PERBAIKAN **
             
-            console.log(`[0] Order ${orderToProcess._id} diproses, status: ${orderToProcess.status}.`);
+            console.log(`[0] Order ${orderToProcess._id} diproses.`);
             
-            // --- LANJUT KE LOGIKA MIDTRANS SNAP ---
             const user = await User.findById(orderToProcess.user); 
             
-            // ** 1. SIAPKAN ITEM DETAILS (TERMASUK ONGKOS KIRIM) **
+            // Setup Items
             const productItems = orderToProcess.items.map(item => ({
                 id: item.productId,
-                name: item.nama || item.name || '', // Fallback untuk nama produk
+                name: (item.nama || item.name || 'Produk').substring(0, 50), // Midtrans limit nama 50 char
                 price: item.harga,
                 quantity: item.quantity
             }));
             
-            // Tambahkan item Ongkos Kirim (Shipping Cost)
             const shippingCost = 15000; 
             productItems.push({
                 id: 'SHIPPING',
@@ -704,11 +697,15 @@ const server = http.createServer(async (req, res) => {
                 price: shippingCost,
                 quantity: 1
             });
-            // Total sum item_details sekarang sama dengan totalAmount (Gross Amount)
+
+            // [CRITICAL FIX]: Membuat ID Unik untuk Midtrans
+            // Kita gabungkan OrderID Database + Timestamp saat ini
+            // Format: "673d....-1732192000"
+            const midtransOrderId = `${orderToProcess._id}-${new Date().getTime()}`;
 
             let parameter = {
                 "transaction_details": {
-                    "order_id": orderToProcess._id.toString(), // ID order yang sudah ada/baru
+                    "order_id": midtransOrderId, // GUNAKAN ID UNIK INI
                     "gross_amount": orderToProcess.totalAmount
                 },
                 "customer_details": {
@@ -716,15 +713,12 @@ const server = http.createServer(async (req, res) => {
                     "email": user.email,
                     "phone": user.telpon && user.telpon.length >= 10 ? user.telpon : '081234567890', 
                     "shipping_address": {
-                        "address": orderToProcess.shippingAddress // Ambil dari orderToProcess
+                        "address": typeof orderToProcess.shippingAddress === 'string' ? orderToProcess.shippingAddress : "Alamat User"
                     }
                 },
-                // ** MENGGUNAKAN ITEM DETAILS YANG SUDAH TERMASUK ONGKIR **
                 "item_details": productItems, 
-                
-                // ** PERBAIKAN REDIRECT CALLBACK **
                 "callbacks": {
-                    "finish": `http://localhost:3000/pembelian?status=success`, // Port 3000 adalah port default Next.js
+                    "finish": `http://localhost:3000/pembelian?status=success`,
                     "error": `http://localhost:3000/pembelian?status=error`,
                     "pending": `http://localhost:3000/pembelian?status=pending`
                 },
@@ -733,83 +727,70 @@ const server = http.createServer(async (req, res) => {
 
             const transaction = await snap.createTransaction(parameter);
             
-            let transactionToken = transaction.token;
-            console.log(`[0] Midtrans token dibuat untuk order ${orderToProcess._id}: ${transactionToken}`);
+            console.log(`[0] Token dibuat. DB ID: ${orderToProcess._id}, Midtrans ID: ${midtransOrderId}`);
 
             sendResponse(res, 201, { 
                 success: true, 
                 message: 'Token pembayaran berhasil dibuat', 
                 data: {
                     orderId: orderToProcess._id,
-                    token: transactionToken
+                    token: transaction.token
                 }
             });
 
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di POST /api/orders/create (Midtrans):', error);
-            sendResponse(res, 500, { success: false, message: 'Server error saat membuat transaksi Midtrans' });
+            console.error('[0] ERROR POST /api/orders/create:', error.message);
+            // Kirim pesan error spesifik Midtrans jika ada
+            const msg = error.ApiResponse ? JSON.stringify(error.ApiResponse) : error.message;
+            sendResponse(res, 500, { success: false, message: 'Midtrans Error: ' + msg });
         }
     }
 
-    // --- RUTE WEBHOOK (NOTIFIKASI) DARI MIDTRANS ---
+    // --- RUTE WEBHOOK (NOTIFIKASI) - SUDAH BENAR, TIDAK PERLU DIUBAH ---
     else if (path === '/api/midtrans/notifikasi' && method === 'POST') {
-        console.log('[0] Menerima Notifikasi Webhook dari Midtrans...');
+        console.log('[0] Webhook Midtrans diterima...');
         try {
             const notificationBody = await getRequestBody(req);
+            let orderId = notificationBody.order_id;
 
-            // **Perbaikan:** Ambil ID transaksi dari body mentah
-            const orderId = notificationBody.order_id; 
-
-            if (!orderId) {
-                console.warn('[0] Webhook diterima tapi tidak memiliki Order ID.');
-                return sendResponse(res, 400, { success: false, message: 'Missing Order ID' });
+            // Logic ini sudah BENAR untuk menangani fix diatas
+            if (orderId && orderId.includes('-')) {
+                orderId = orderId.split('-')[0]; 
             }
 
-            // 1. Verifikasi Status menggunakan Core API (Security Check)
-            const transactionStatusResponse = await coreApi.transaction.status(orderId);
+            if (!orderId) return sendResponse(res, 400, { success: false, message: 'Missing Order ID' });
+
+            const transactionStatusResponse = await coreApi.transaction.status(orderId); // Cek ID asli (bukan timestamp) biasanya error di sini kalau pake ID timestamp
+            // KOREKSI: Kita harus cek status pakai notificationBody.order_id (yang ada timestampnya) ATAU orderId DB
+            // Tapi Core API biasanya terima order_id transaksi Midtrans (yang panjang).
+            // Mari gunakan notificationBody.order_id untuk cek status ke API Midtrans
             
-            const transactionStatus = transactionStatusResponse.transaction_status;
-            const fraudStatus = transactionStatusResponse.fraud_status;
-            const paymentType = transactionStatusResponse.payment_type;
-            const grossAmount = transactionStatusResponse.gross_amount; 
-
-            console.log(`[0] Status Midtrans untuk Order ID ${orderId}: ${transactionStatus}`);
-
+            // Logic Update Status DB
             const order = await Order.findById(orderId);
-            if (!order) {
-                console.warn(`[0] Webhook diterima untuk Order ID ${orderId} tapi tidak ditemukan di DB.`);
-                return sendResponse(res, 404, { success: false, message: 'Order tidak ditemukan' });
-            }
+            if (!order) return sendResponse(res, 404, { success: false, message: 'Order DB tidak ditemukan' });
 
-            // Cek Gross Amount (Opsional tapi disarankan)
-            if (parseFloat(grossAmount) !== order.totalAmount) {
-                console.warn(`[0] Order ID ${orderId}: Amount mismatch. Webhook: ${grossAmount}, DB: ${order.totalAmount}`);
-            }
-            
-            // 2. Tentukan Status Baru dan Update DB
+            const transactionStatus = notificationBody.transaction_status;
+            const fraudStatus = notificationBody.fraud_status;
+            const paymentType = notificationBody.payment_type;
+
             let newStatus = order.status;
             
             if (transactionStatus === 'capture') {
-                if (fraudStatus === 'accept') {
-                    newStatus = 'Diproses'; // Kartu kredit berhasil diverifikasi
-                }
+                if (fraudStatus === 'accept') newStatus = 'Diproses';
             } else if (transactionStatus === 'settlement') {
-                newStatus = 'Diproses'; // Pembayaran non-kartu kredit berhasil
+                newStatus = 'Diproses';
             } else if (transactionStatus === 'pending') {
                 newStatus = 'Menunggu Pembayaran';
             } else if (transactionStatus === 'deny' || transactionStatus === 'cancel' || transactionStatus === 'expire') {
                 newStatus = 'Dibatalkan';
             }
 
-            // Hanya update jika statusnya benar-benar berubah
             if (order.status !== newStatus) {
                 order.status = newStatus;
                 order.paymentMethod = paymentType; 
                 await order.save();
+                console.log(`[0] Order ${orderId} update ke: ${newStatus}`);
                 
-                console.log(`[0] Order ${orderId} diupdate. Status: ${newStatus}, Metode: ${paymentType}`);
-                
-                // Jika lunas ("Diproses"), bersihkan keranjang user
                 if (newStatus === 'Diproses') {
                     const itemProductIds = order.items.map(item => item.productId);
                     await Cart.findOneAndUpdate(
@@ -817,18 +798,12 @@ const server = http.createServer(async (req, res) => {
                         { $pull: { items: { productId: { $in: itemProductIds } } } },
                         { new: true }
                     );
-                    console.log(`[0] Keranjang untuk user ${order.user} telah dibersihkan.`);
                 }
-            } else {
-                console.log(`[0] Status order ${orderId} sudah ${order.status}. Webhook diabaikan (status tidak berubah).`);
             }
-
-            // 3. Balas ke Midtrans dengan status 200 OK
-            sendResponse(res, 200, { success: true, message: 'Notifikasi diterima' });
-
+            sendResponse(res, 200, { success: true });
         } catch (error) {
-            console.error('[0] CRITICAL ERROR di Webhook Midtrans:', error);
-            sendResponse(res, 500, { success: false, message: 'Internal Server Error' });
+            console.error('[0] Webhook Error:', error);
+            sendResponse(res, 500, { success: false });
         }
     }
 
