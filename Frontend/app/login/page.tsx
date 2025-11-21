@@ -20,7 +20,7 @@ export default function LoginPage() {
 
     try {
       // 1. Hubungi Backend (Alamat ini sudah benar sesuai server.js Anda)
-      const response = await fetch('http://localhost:5000/api/login', { 
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/login', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Backend Anda mengharapkan 'identifier', bukan 'username'

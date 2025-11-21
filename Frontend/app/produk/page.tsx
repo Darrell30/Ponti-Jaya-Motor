@@ -64,9 +64,9 @@ export default function ProdukPage() {
       try {
         setLoading(true);
         const [sparepartRes, serviceRes, storeStatusRes] = await Promise.all([
-            fetch('http://localhost:5000/api/spareparts'),
-            fetch('http://localhost:5000/api/services'),
-            fetch('http://localhost:5000/api/store/status')
+            fetch('${process.env.NEXT_PUBLIC_API_URL}/api/spareparts'),
+            fetch('${process.env.NEXT_PUBLIC_API_URL}/api/services'),
+            fetch('${process.env.NEXT_PUBLIC_API_URL}/api/store/status')
         ]);
         
         let allProducts: Product[] = [];
@@ -164,7 +164,7 @@ export default function ProdukPage() {
       quantity: quantity
     };
     try {
-      const response = await fetch('http://localhost:5000/api/cart/add', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cartItemData)

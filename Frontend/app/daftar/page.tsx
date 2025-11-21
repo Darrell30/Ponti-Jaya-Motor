@@ -27,7 +27,7 @@ export default function DaftarPage() {
     setMessage("");
 
     try {
-      const response = await fetch('http://localhost:5000/api/send-otp', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -64,7 +64,7 @@ export default function DaftarPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/daftar', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/daftar', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

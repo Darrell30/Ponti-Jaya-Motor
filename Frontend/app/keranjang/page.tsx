@@ -88,7 +88,7 @@ export default function KeranjangPage() {
   // Fungsi: Mengambil profil (alamat) user
   const fetchProfile = async (currentUserId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/users/profile?userId=${currentUserId}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/profile?userId=${currentUserId}`);
       const data = await response.json();
       if (data.success && data.data.alamat) {
         setAddress(data.data.alamat); // Set alamat dari DB
@@ -106,7 +106,7 @@ export default function KeranjangPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:5000/api/cart?userId=${currentUserId}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart?userId=${currentUserId}`);
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Gagal mengambil data keranjang');
@@ -128,7 +128,7 @@ export default function KeranjangPage() {
       )
     );
     try {
-      const response = await fetch('http://localhost:5000/api/cart/update', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, cartItemId, quantity: newQuantity })
@@ -152,7 +152,7 @@ export default function KeranjangPage() {
       return newSelected;
     });
     try {
-      const response = await fetch('http://localhost:5000/api/cart/remove', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/remove', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, cartItemId })
@@ -266,7 +266,7 @@ export default function KeranjangPage() {
     
     try {
       // Panggil API untuk update profil HANYA dengan alamat
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/users/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
