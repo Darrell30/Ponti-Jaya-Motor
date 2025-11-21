@@ -41,21 +41,23 @@ console.log('✅ Cloudinary configured successfully!');
 // FIX 1: Konfigurasi Nodemailer (Brevo) dengan IPv4 Forced
 // ==========================================================
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false, // Port 587 pakai secure: false
+    host: 'smtp-relay.brevo.com', // Host Brevo
+    port: 587,                    // Gunakan Port 587 (Lebih stabil dibanding 465)
+    secure: false,                // Port 587 pakai secure: false
     auth: {
-        user: process.env.SMTP_USER, 
+        user: process.env.SMTP_USER, // Pastikan variables ini ada di Railway
         pass: process.env.SMTP_PASS, 
     },
+    // --- BAGIAN INI YANG MEMPERBAIKI ERROR TIMEOUT ---
     tls: {
-        rejectUnauthorized: false,
-        ciphers: 'SSLv3' 
+        rejectUnauthorized: false, // Mencegah error sertifikat
+        ciphers: 'SSLv3'
     },
-    // --- PENAMBAHAN WAJIB UNTUK RAILWAY ---
-    family: 4, // Memaksa IPv4 agar tidak timeout
-    connectionTimeout: 10000, 
-    greetingTimeout: 5000 
+    family: 4,              // <--- WAJIB ADA: Memaksa pakai IPv4 agar tidak macet
+    connectionTimeout: 10000, // Waktu tunggu maksimal 10 detik
+    greetingTimeout: 5000,
+    debug: true,            // Nyalakan log debug
+    logger: true
 });
 
 transporter.verify((error, success) => {
