@@ -42,13 +42,22 @@ console.log('✅ Cloudinary configured successfully!');
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
-    secure: true,
+    secure: true, // Gunakan SSL
     auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_PASS
     },
-    logger: true,
-    debug: true
+    // --- PENGATURAN JARINGAN TAMBAHAN (THE FIX) ---
+    tls: {
+        // Jangan gagal jika sertifikatnya aneh (opsional, tapi membantu di cloud)
+        rejectUnauthorized: false 
+    },
+    // Paksa menggunakan IPv4 saja (KUNCI MASALAHNYA DISINI)
+    family: 4, 
+    // Tambahkan waktu tunggu agar tidak cepat timeout
+    connectionTimeout: 10000, // 10 detik
+    greetingTimeout: 5000,    // 5 detik
+    socketTimeout: 10000      // 10 detik
 });
 
 transporter.verify((error, success) => {
