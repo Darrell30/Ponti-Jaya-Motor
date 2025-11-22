@@ -98,7 +98,6 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      // URL Backend Localhost
       const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'; 
 
       try {
@@ -241,7 +240,6 @@ export default function Home() {
     }
   };
   
-  // FUNGSI YANG DIPERBAIKI NAMANYA
   const handleBeliLangsung = () => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) { router.push('/login'); return; }
@@ -278,6 +276,16 @@ export default function Home() {
         return product.nama.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
+  // Helper style untuk container scrollable
+  const scrollContainerStyle = {
+    display: 'flex',
+    overflowX: 'auto' as const,
+    scrollBehavior: 'smooth' as const,
+    scrollbarWidth: 'thin' as const,
+    paddingBottom: '1rem',
+    gap: '1rem',
+  };
+
   return (
     <main style={{ backgroundColor: "#fff" }}>
       
@@ -298,43 +306,49 @@ export default function Home() {
         </Container>
       </div>
       
-      {/* PRODUK DI CARI */}
+      {/* 2. PRODUK DI CARI (SLIDER HORIZONTAL) */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
         {loading ? <div className="text-center"><Spinner animation="border"/></div> : (
-          <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 justify-content-center">
+          <div style={scrollContainerStyle} className="px-2">
             {featuredProducts.map((product) => (
-              <Col key={product._id} className="text-center" onClick={() => handleShowModal(product)} style={{ cursor: 'pointer' }}>
-                <Image src={product.imageUrl} alt={product.nama} roundedCircle className="shadow-sm mb-3" style={{ width: '120px', height: '120px', objectFit: 'cover' }} />
-                <h6 className="fw-bold text-dark">{product.nama}</h6>
-              </Col>
+              <div key={product._id} className="text-center" style={{ minWidth: '150px', cursor: 'pointer' }} onClick={() => handleShowModal(product)}>
+                <Image 
+                    src={product.imageUrl} 
+                    alt={product.nama} 
+                    roundedCircle 
+                    className="shadow-sm mb-3" 
+                    style={{ width: '120px', height: '120px', objectFit: 'cover' }} 
+                />
+                <h6 className="fw-bold text-dark small text-truncate px-2">{product.nama}</h6>
+              </div>
             ))}
-          </Row>
+          </div>
         )}
       </Container>
 
-      {/* PRODUK TERLARIS */}
+      {/* 3. PRODUK TERLARIS (SLIDER HORIZONTAL) */}
       <Container as="section" className="py-5 bg-light">
         <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
         {loading ? <div className="text-center"><Spinner animation="border"/></div> : (
-          <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
+          <div style={scrollContainerStyle} className="px-2">
             {bestSellingProducts.map((product) => (
-              <Col key={product._id} className="mb-4">
+              <div key={product._id} style={{ minWidth: '250px', maxWidth: '250px' }}>
                 <Card className="h-100 shadow-sm border-0 rounded-3 overflow-hidden">
                   <Card.Img variant="top" src={product.imageUrl} style={{ height: '150px', objectFit: 'cover', cursor: 'pointer' }} onClick={() => handleShowModal(product)} />
                   <Card.Body className="d-flex flex-column pt-3 px-3 pb-4">
-                    <Card.Title as="h5" className="fw-bold text-dark mb-1" style={{ cursor: 'pointer' }} onClick={() => handleShowModal(product)}>{product.nama}</Card.Title>
+                    <Card.Title as="h6" className="fw-bold text-dark mb-1 text-truncate" style={{ cursor: 'pointer' }} onClick={() => handleShowModal(product)}>{product.nama}</Card.Title>
                     <Card.Text className="text-dark fw-bold fs-5 mb-3">Rp {product.harga.toLocaleString('id-ID')}</Card.Text>
                     <Button variant="primary" className="w-100 mt-auto rounded-3 btn-add-to-cart" onClick={() => handleShowModal(product)}><i className="bi bi-cart-plus"></i> Tambah</Button>
                   </Card.Body>
                 </Card>
-              </Col>
+              </div>
             ))}
-          </Row>
+          </div>
         )}
       </Container>
 
-      {/* JASA KAMI (CAROUSEL) */}
+      {/* 4. JASA KAMI (CAROUSEL) */}
       <Container as="section" className="py-5" id="jasa"> 
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         {loading ? <div className="text-center"><Spinner animation="border"/></div> : (
@@ -402,7 +416,6 @@ export default function Home() {
                 <div className="d-flex flex-column gap-2">
                   <Button variant="primary" className="w-100" onClick={handleAddToCart} disabled={isSubmitting}>{isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "+ Keranjang"}</Button>
                   
-                  {/* PERBAIKAN DI SINI: Menggunakan handleBeliLangsung yang sudah didefinisikan */}
                   <Button variant="outline-primary" className="w-100" onClick={handleBeliLangsung}><Zap size={18} className="me-2" /> Beli Langsung</Button>
                   
                   <Button variant="outline-secondary" className="w-100" onClick={handleChatToko}><MessageCircle size={18} className="me-2" /> Chat Toko</Button>
