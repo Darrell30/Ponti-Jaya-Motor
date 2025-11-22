@@ -1,18 +1,14 @@
 'use client';
 
-// 1. MODIFIKASI: Tambahkan import untuk Modal, Form, Toast, Alert, dan Loader2
 import { 
   Container, Row, Col, Button, Image, Card, Spinner,
-  Modal, Form, Alert, Toast, ToastContainer 
+  Modal, Form, Alert, Toast, ToastContainer, Carousel 
 } from 'react-bootstrap';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-// PERBAIKAN: Menambahkan MessageCircle ke import
 import { Loader2, MessageCircle } from 'lucide-react'; 
-// === BARU: Impor useRouter untuk redirect ===
 import { useRouter } from 'next/navigation';
 import ChatWidget from './components/ChatWidget'; 
-
 
 // === TIPE DATA ===
 interface Product {
@@ -25,7 +21,6 @@ interface Product {
   kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW'; 
 }
 
-// TIPE BARU UNTUK JASA
 interface Service {
   _id: string;
   nama: string;
@@ -34,33 +29,17 @@ interface Service {
   deskripsi?: string;
 }
 
-// === DAFTAR FILTER NAMA (Tidak Berubah) ===
 const featuredProductNames = [
-  "Veleg",
-  "Selang Rem",
-  "Kampas Rem",
-  "Seal Lahar Bambu",
-  "Klahar Roda",
-  "Tabung Central",
-  "Veleg"
+  "Veleg", "Selang Rem", "Kampas Rem", "Seal Lahar Bambu", "Klahar Roda", "Tabung Central", "Veleg"
 ];
 
 const bestSellingProductNames = [
-  "Master Rem",
-  "Kampas Rem", 
-  "Klahar Roda",
-  "Master Central",
-  "Tabung Central",
+  "Master Rem", "Kampas Rem", "Klahar Roda", "Master Central", "Tabung Central",
 ];
 
-// === KOMPONEN UTAMA ===
-
 export default function Home() {
-  // === BARU: Inisialisasi router ===
   const router = useRouter();
-  // =================================
 
-  // === STATE (DIPERBARUI) ===
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]); 
@@ -68,7 +47,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // === BARU: State Modal ===
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1); 
@@ -77,24 +55,21 @@ export default function Home() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // === PERBAIKAN: STATE UNTUK CHAT WIDGET ===
-  // State ini yang sebelumnya hilang sehingga menyebabkan error 'setChatProduct not found'
   const [chatProduct, setChatProduct] = useState<Product | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  // ==========================================
 
   const whatsappNumber = "6281297575567";
   const shopEmail = "edward.stiawan06@gmail.com"; 
   const emailSubject = "Pertanyaan Mengenai Ponti Jaya Motor";
+  
   const mailtoUrl = `mailto:${shopEmail}?subject=${encodeURIComponent(emailSubject)}`;
 
-  // === LOGIKA FETCH (DIPERBARUI) ===
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         const [sparepartRes, serviceRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`) // <-- PANGGILAN API BARU
+          fetch('http://localhost:5000/api/spareparts'),
+          fetch('http://localhost:5000/api/services') 
         ]);
 
         if (!sparepartRes.ok || !serviceRes.ok) {
@@ -104,7 +79,6 @@ export default function Home() {
         const sparepartData = await sparepartRes.json();
         const serviceData = await serviceRes.json(); 
 
-        // Proses data sparepart
         if (sparepartData.success) {
           const allProducts: Product[] = sparepartData.data.map((p: Product) => ({
             ...p,
@@ -124,9 +98,8 @@ export default function Home() {
           throw new Error(sparepartData.message || 'Gagal memuat data sparepart');
         }
 
-        // Proses data jasa
         if (serviceData.success) {
-          setServices(serviceData.data.slice(0, 3)); 
+          setServices(serviceData.data);
         } else {
           throw new Error(serviceData.message || 'Gagal memuat data jasa');
         }
@@ -145,31 +118,26 @@ export default function Home() {
   const handleServiceChat = (service: Service) => {
     const userInfoString = localStorage.getItem("userInfo");
     
-    // Cek Login
     if (!userInfoString) {
       alert("Silakan login terlebih dahulu untuk bertanya tentang jasa.");
       router.push('/login');
       return;
     }
 
-    // Ubah data 'Service' menjadi format 'Product' agar dibaca oleh ChatWidget
     const serviceAsProduct: Product = {
       _id: service._id,
       nama: service.nama,
       imageUrl: service.imageUrl,
       harga: service.harga,
-      stok: 1, // Service, tidak ada stok
+      stok: 1, 
       deskripsi: service.deskripsi,
       kategori: 'Jasa'
     };
     
-    // Set konteks produk dan buka widget
-    setChatProduct(serviceAsProduct); // Sekarang ini tidak akan error
-    setIsChatOpen(true);              // Ini juga aman
+    setChatProduct(serviceAsProduct);
+    setIsChatOpen(true);
   };
 
-
-  // === Handlers Modal ===
   const handleCloseModal = () => { setShowModal(false); setSelectedProduct(null); };
   const handleShowModal = (product: Product) => {
     setSelectedProduct(product);
@@ -197,7 +165,6 @@ export default function Home() {
     justifyContent: 'center',
   };
 
-  // === FUNGSI "+ KERANJANG" ===
   const handleAddToCart = async () => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
@@ -225,7 +192,7 @@ export default function Home() {
       quantity: quantity
     };
     try {
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/add', {
+      const response = await fetch('http://localhost:5000/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cartItemData)
@@ -258,10 +225,8 @@ export default function Home() {
       router.push('/login'); 
       return; 
     }
-    // Tutup modal produk
     handleCloseModal();
     
-    // Set chat ke produk yang sedang dibuka di modal
     if (selectedProduct) {
         setChatProduct(selectedProduct);
         setIsChatOpen(true);
@@ -295,18 +260,12 @@ export default function Home() {
               </p>
               <div className="d-flex gap-3 justify-content-center">
                 <Link href="/produk" passHref legacyBehavior>
-                  <Button
-                    size="lg"
-                    className="px-4 fw-bold rounded-3 btn-hero-primary"
-                  >
+                  <Button size="lg" className="px-4 fw-bold rounded-3 btn-hero-primary">
                     Lihat Katalog
                   </Button>
                 </Link>
                 <Link href="/#jasa" passHref legacyBehavior>
-                  <Button
-                    size="lg"
-                    className="px-4 fw-bold rounded-3 btn-hero-secondary"
-                  >
+                  <Button size="lg" className="px-4 fw-bold rounded-3 btn-hero-secondary">
                     Jasa Servis
                   </Button>
                 </Link>
@@ -315,8 +274,8 @@ export default function Home() {
           </Row>
         </Container>
       </div>
-
-      {/* === 2. PRODUK YANG PALING DI CARI-CARI === */}
+      
+      {/* === 2. PRODUK DI CARI === */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
         
@@ -352,17 +311,10 @@ export default function Home() {
         </Row>
       </Container>
 
-      
       {/* === 3. PRODUK TERLARIS === */}
       <Container as="section" className="py-5 bg-light">
         <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
-        
-        {loading && (
-          <div className="text-center">
-            <Spinner animation="border" role="status" />
-          </div>
-        )}
-        {error && <p className="text-danger text-center">Error: {error}</p>}
+        {loading && <div className="text-center"><Spinner animation="border" /></div>}
         
         <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
           {!loading && !error && bestSellingProducts.map((product) => (
@@ -375,34 +327,16 @@ export default function Home() {
                   style={{ height: '150px', objectFit: 'cover', cursor: 'pointer' }}
                   onClick={() => handleShowModal(product)} 
                 />
-                <Card.Body
-                  className="d-flex flex-column pt-3 px-3 pb-4"
-                >
-                  <Card.Title 
-                    as="h5" 
-                    className="fw-bold text-dark mb-1"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => handleShowModal(product)} 
-                  >
+                <Card.Body className="d-flex flex-column pt-3 px-3 pb-4">
+                  <Card.Title as="h5" className="fw-bold text-dark mb-1" style={{ cursor: 'pointer' }} onClick={() => handleShowModal(product)}>
                     {product.nama}
                   </Card.Title>
                   <Card.Text className="text-dark fw-bold fs-5 mb-3">
-                    {product.harga.toLocaleString('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR',
-                      minimumFractionDigits: 0 
-                    })}
+                    {product.harga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
                   </Card.Text>
-                  
-                  <Button
-                    variant="primary"
-                    className="w-100 mt-auto rounded-3 btn-add-to-cart"
-                    onClick={() => handleShowModal(product)} 
-                  >
-                    <i className="bi bi-cart-plus"></i>
-                    Tambah
+                  <Button variant="primary" className="w-100 mt-auto rounded-3 btn-add-to-cart" onClick={() => handleShowModal(product)}>
+                    <i className="bi bi-cart-plus"></i> Tambah
                   </Button>
-
                 </Card.Body>
               </Card>
             </Col>
@@ -410,81 +344,80 @@ export default function Home() {
         </Row>
       </Container>
 
-      
-      {/* === 4. JASA KAMI === */}
+      {/* === 4. JASA KAMI (MODIFIKASI: CAROUSEL/SLIDER) === */}
       <Container as="section" className="py-5" id="jasa"> 
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         
-        {loading && (<div className="text-center"><Spinner animation="border" /></div>)}
+        {loading && <div className="text-center"><Spinner animation="border" /></div>}
         {error && <p className="text-danger text-center">{error}</p>}
         
-        <Row className="g-4 row-cols-1 row-cols-md-3">
-          {!loading && !error && services.map((service) => (
-            <Col key={service._id} className="mb-4">
-              <Card className="text-white border-0 rounded-3 overflow-hidden">
-                <Card.Img
+        {!loading && !error && services.length > 0 && (
+          <Carousel 
+            className="service-carousel shadow-lg rounded-4 overflow-hidden" 
+            interval={3000} // Geser otomatis setiap 3 detik
+            indicators={true}
+            controls={true}
+          >
+            {services.map((service) => (
+              <Carousel.Item key={service._id} style={{ height: '500px' }}>
+                {/* Gambar Background */}
+                <img
+                  className="d-block w-100 h-100"
                   src={service.imageUrl}
                   alt={service.nama}
-                  style={{ height: '250px', objectFit: 'cover' }}
+                  style={{ objectFit: 'cover' }}
                 />
-                <Card.ImgOverlay
-                  className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
-                  style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+                
+                {/* Overlay Gelap & Teks */}
+                <div 
+                  className="carousel-caption d-flex flex-column align-items-center justify-content-center"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Overlay hitam transparan
+                    top: 0, bottom: 0, left: 0, right: 0 // Full cover
+                  }}
                 >
-                  <Card.Title as="h2" className="fw-bold mb-3">
-                    {service.nama}
-                  </Card.Title>
-                  <Button
-                    variant="primary"
-                    className="rounded-3 btn-service-wa"
-                    onClick={() => handleServiceChat(service)} 
+                  <h2 className="fw-bold display-5 mb-3 text-white">{service.nama}</h2>
+                  <p className="fs-5 d-none d-md-block mb-4" style={{ maxWidth: '600px' }}>
+                    {service.deskripsi || 'Layanan servis terbaik untuk kendaraan roda tiga Anda.'}
+                  </p>
+                  <Button 
+                    variant="primary" 
+                    size="lg"
+                    className="rounded-pill px-4 btn-service-wa fw-bold" 
+                    onClick={() => handleServiceChat(service)}
                   >
-                    <MessageCircle size={18} className="me-2" style={{ fontSize: '1.2rem' }}/> 
-                    Hubungi Kami
+                    <MessageCircle size={24} className="me-2"/> 
+                    Hubungi Kami Sekarang
                   </Button>
-                </Card.ImgOverlay>
-              </Card>
-            </Col>
-          ))}
-        </Row>
+                </div>
+              </Carousel.Item>
+            ))}
+          </Carousel>
+        )}
       </Container>
 
-      
-      {/* === 5. SECTION TENTANG KAMI === */}
+      {/* === 5. TENTANG KAMI === */}
       <Container as="section" className="py-5 bg-light">
         <div className="about-us-panel">
           <Row className="align-items-center g-custom-20">
             <Col md={6} className="mb-4 mb-md-0">
-              <h2 className="fw-bold mb-4 text-dark" style={{ fontSize: '2.5rem' }}>
-                Apa itu Ponti Jaya Motor?
-              </h2>
+              <h2 className="fw-bold mb-4 text-dark" style={{ fontSize: '2.5rem' }}>Apa itu Ponti Jaya Motor?</h2>
               <p className="fs-5 text-secondary" style={{ lineHeight: '1.6' }}>
                 Toko sparepart daerah jakarta barat dengan jasa service yang memuaskan terutama dalam pengelolaan service bajaj disertai dengan kelengkapan produk di dalam toko.
               </p>
             </Col>
             <Col md={6}>
-              <Image 
-                src="/images/hero/bengkel.jpg"
-                alt="Tentang Ponti Jaya Motor"
-                fluid
-                className="rounded-3"
-              />
+              <Image src="/images/hero/bengkel.jpg" alt="Tentang Ponti Jaya Motor" fluid className="rounded-3" />
             </Col>
           </Row>
         </div>
       </Container>
-
-
-      {/* === 6. SECTION HUBUNGI KAMI === */}
+      
+      {/* === 6. HUBUNGI KAMI === */}
       <Container as="section" className="py-5" id="hubungi"> 
         <Row className="align-items-center g-custom-20">
           <Col md={6} className="mb-4 mb-md-0">
-            <Image 
-              src="/images/kontak/hubungi.jpeg"
-              alt="Hubungi Kami"
-              fluid
-              className="rounded-3"
-            />
+             <Image src="/images/kontak/hubungi.jpeg" alt="Hubungi Kami" fluid className="rounded-3" />
           </Col>
           <Col md={6} className="ps-md-5">
             <h2 className="fw-bold mb-3 text-dark" style={{ fontSize: '2.5rem' }}>
@@ -501,16 +434,10 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <i className="bi bi-whatsapp"></i>
-                WhatsApp
+                <i className="bi bi-whatsapp"></i> WhatsApp
               </Button>
-              <Button 
-                variant="primary" 
-                className="btn-contact-email"
-                href={mailtoUrl}
-              >
-                <i className="bi bi-envelope-fill"></i>
-                Email
+              <Button variant="primary" className="btn-contact-email" href={mailtoUrl}>
+                <i className="bi bi-envelope-fill"></i> Email
               </Button>
             </div>
           </Col>
@@ -548,34 +475,16 @@ export default function Home() {
                 {modalMessage && modalMessage.type === 'error' && (<Alert variant="danger" className="py-2 small">{modalMessage.text}</Alert>)}
                 
                 <div className="d-flex flex-column gap-2">
-                  <Button 
-                    variant="primary" 
-                    className="w-100 rounded-3 btn-add-to-cart" 
-                    onClick={handleAddToCart} 
-                    disabled={isSubmitting}
-                  >
+                  <Button variant="primary" className="w-100 rounded-3 btn-add-to-cart" onClick={handleAddToCart} disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <><i className="bi bi-cart-plus me-2"></i>+ Keranjang</>}
                   </Button>
-                  <Button 
-                    variant="outline-primary" 
-                    className="w-100 rounded-3" 
-                    style={buttonStyle} 
-                    disabled={isSubmitting}
-                    onClick={handleBeliLangsung} 
-                  >
+                  <Button variant="outline-primary" className="w-100 rounded-3" style={buttonStyle} disabled={isSubmitting} onClick={handleBeliLangsung}>
                     Beli Langsung
                   </Button>
-                  <Button 
-                    variant="outline-secondary" 
-                    className="w-100 rounded-3" 
-                    style={buttonStyle} 
-                    disabled={isSubmitting}
-                    onClick={handleChatToko} 
-                  >
+                  <Button variant="outline-secondary" className="w-100 rounded-3" style={buttonStyle} disabled={isSubmitting} onClick={handleChatToko}>
                     <i className="bi bi-chat-dots me-2"></i>Chat Toko
                   </Button>
                 </div>
-                
               </Col>
             </Row>
           )}
@@ -588,8 +497,6 @@ export default function Home() {
         </Toast>
       </ToastContainer>
 
-      {/* === PERBAIKAN: RENDER CHAT WIDGET === */}
-      {/* Chat Widget perlu dirender di sini agar muncul */}
       <ChatWidget 
         productContext={chatProduct} 
         isOpen={isChatOpen} 
