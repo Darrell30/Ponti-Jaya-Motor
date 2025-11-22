@@ -3,12 +3,11 @@
 import { 
   Container, Row, Col, Button, Image, Card, Spinner,
   Modal, Form, Alert, Toast, ToastContainer, Carousel 
-} from 'react-bootstrap'; // TAMBAHAN: Import Carousel
+} from 'react-bootstrap';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Loader2, MessageCircle } from 'lucide-react'; 
 import { useRouter } from 'next/navigation';
-// Pastikan path ini sesuai dengan struktur folder Anda
 import ChatWidget from './components/ChatWidget'; 
 
 // === TIPE DATA ===
@@ -99,9 +98,8 @@ export default function Home() {
           throw new Error(sparepartData.message || 'Gagal memuat data sparepart');
         }
 
-        // === PERUBAHAN DISINI: MENGAMBIL SEMUA DATA JASA (HAPUS SLICE) ===
         if (serviceData.success) {
-          setServices(serviceData.data); // Tampilkan SEMUA jasa yang ada di DB
+          setServices(serviceData.data);
         } else {
           throw new Error(serviceData.message || 'Gagal memuat data jasa');
         }
