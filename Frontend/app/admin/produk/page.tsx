@@ -1,12 +1,10 @@
-// app/admin/produk/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-// 1. Tambahkan Form, InputGroup, Row, Col dari 'react-bootstrap' dan ikon 'Search'
 import { Form, InputGroup, Row, Col } from "react-bootstrap";
 import { Edit, Plus, Upload, Package, DollarSign, Archive, FileText, Loader2, Trash2, AlertTriangle, Search } from "lucide-react";
 
-// --- Tipe data Produk ---
+// --- Tipe data Produk (Dari Database) ---
 interface Product {
   _id: string;
   nama: string;
@@ -16,12 +14,13 @@ interface Product {
   imageUrl: string; 
 };
 
-// --- Tipe data untuk Form ---
+// --- Tipe data untuk Form (State Lokal) ---
+// PERUBAHAN 1: Stok diubah jadi 'number | string' agar bisa dikosongkan (user friendly)
 type ProductFormState = {
   _id: string | null;
   nama: string;
   harga: string; 
-  stok: number;
+  stok: number | string; // <-- Diubah di sini
   deskripsi: string;
   imageUrl: string; 
   imageFile?: File | null;
@@ -31,7 +30,7 @@ const newProductInitialState: ProductFormState = {
   _id: null,
   nama: '',
   harga: '',
-  stok: 0,
+  stok: '', // Default kosong atau 0 (terserah preferensi), '' lebih bersih
   deskripsi: '',
   imageUrl: '', 
   imageFile: null,
@@ -42,7 +41,7 @@ export default function ProdukPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // 2. Tambahkan State untuk Search Query
+  // State Search Query
   const [searchQuery, setSearchQuery] = useState("");
 
   // State Modal Edit & Tambah
@@ -51,10 +50,10 @@ export default function ProdukPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newFormData, setNewFormData] = useState<ProductFormState>(newProductInitialState);
 
-  // --- STATE BARU: Modal Hapus ---
+  // State Modal Hapus
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false); // Loading saat menghapus
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -94,8 +93,6 @@ export default function ProdukPage() {
 
     setIsDeleting(true);
     try {
-      // Panggil API Delete di Backend
-      // (Ini sekarang akan memanggil rute baru Anda yang juga menghapus dari Cloudinary)
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts/${productToDelete._id}`, {
         method: 'DELETE',
       });
@@ -106,7 +103,6 @@ export default function ProdukPage() {
         throw new Error(data.message || "Gagal menghapus produk");
       }
 
-      // Sukses: Hapus dari state lokal agar hilang dari layar
       setProducts(prev => prev.filter(p => p._id !== productToDelete._id));
       
       handleCloseDeleteModal();
@@ -116,9 +112,8 @@ export default function ProdukPage() {
       setIsDeleting(false);
     }
   };
-  // ---------------------------
 
-  // --- Logika Modal Edit (Tidak Berubah) ---
+  // --- LOGIKA INPUT EDIT ---
   const handleOpenEditModal = (product: Product) => {
     setEditFormData({
       _id: product._id,
@@ -141,8 +136,16 @@ export default function ProdukPage() {
       const formattedValue = cleanValue.replace(/^0+(?=\d)/, '');
       setEditFormData(prev => ({ ...prev, [name]: formattedValue }));
     } else if (name === 'stok') {
-      const stokValue = parseInt(value) || 0;
-      setEditFormData(prev => ({ ...prev, [name]: Math.max(0, stokValue) }));
+      // PERBAIKAN 2: Izinkan nilai string kosong agar bisa dihapus total
+      if (value === "") {
+        setEditFormData(prev => ({ ...prev, [name]: "" }));
+        return;
+      }
+      // Parse angka agar "012" otomatis jadi "12"
+      const stokValue = parseInt(value, 10);
+      if (!isNaN(stokValue) && stokValue >= 0) {
+        setEditFormData(prev => ({ ...prev, [name]: stokValue }));
+      }
     } else {
       setEditFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -182,7 +185,8 @@ export default function ProdukPage() {
       const productData = {
         nama: editFormData.nama,
         harga: parseInt(editFormData.harga) || 0,
-        stok: editFormData.stok,
+        // PERBAIKAN 3: Konversi stok ke number saat simpan, jika kosong jadi 0
+        stok: editFormData.stok === "" ? 0 : Number(editFormData.stok),
         deskripsi: editFormData.deskripsi,
         imageUrl: finalImageUrl,
       };
@@ -207,9 +211,10 @@ export default function ProdukPage() {
     }
   };
   
-  // --- Logika Modal Tambah (Tidak Berubah) ---
+  // --- LOGIKA INPUT TAMBAH BARU ---
   const handleOpenAddModal = () => {
-    setNewFormData(newProductInitialState); 
+    // Kita reset ke empty string agar form bersih
+    setNewFormData({...newProductInitialState, stok: ''}); 
     setModalError(null);
     setShowAddModal(true);
   };
@@ -222,8 +227,16 @@ export default function ProdukPage() {
       const formattedValue = cleanValue.replace(/^0+(?=\d)/, '');
       setNewFormData(prev => ({ ...prev, [name]: formattedValue }));
     } else if (name === 'stok') {
-      const stokValue = parseInt(value) || 0;
-      setNewFormData(prev => ({ ...prev, [name]: Math.max(0, stokValue) }));
+      // PERBAIKAN 4: Izinkan nilai string kosong
+      if (value === "") {
+        setNewFormData(prev => ({ ...prev, [name]: "" }));
+        return;
+      }
+      // Parse angka untuk menghilangkan 0 di depan (misal "05" jadi 5)
+      const stokValue = parseInt(value, 10);
+      if (!isNaN(stokValue) && stokValue >= 0) {
+        setNewFormData(prev => ({ ...prev, [name]: stokValue }));
+      }
     } else {
       setNewFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -262,7 +275,8 @@ export default function ProdukPage() {
       const productData = {
         nama: newFormData.nama,
         harga: parseInt(newFormData.harga) || 0,
-        stok: newFormData.stok,
+        // PERBAIKAN 5: Konversi stok ke number saat simpan
+        stok: newFormData.stok === "" ? 0 : Number(newFormData.stok),
         deskripsi: newFormData.deskripsi,
         imageUrl: uploadData.url,
       };
@@ -285,14 +299,19 @@ export default function ProdukPage() {
     }
   };
 
-  // 3. Logika untuk memfilter produk berdasarkan search query
   const filteredProducts = products.filter(product =>
     product.nama.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Helper untuk mencegah tombol minus di keyboard
+  const preventMinus = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === '-' || e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+    }
+  };
+
   return (
     <>
-      {/* 4. Modifikasi Header dengan Search Bar */}
       <Row className="mb-4 g-3 align-items-center">
         <Col md={4}>
           <h5 className="fw-bold text-dark mb-0">Daftar Produk</h5>
@@ -328,7 +347,6 @@ export default function ProdukPage() {
       )}
       {error && <div className="alert alert-danger"><strong>Error:</strong> {error}</div>}
 
-      {/* 5. Gunakan `filteredProducts` untuk me-render daftar */}
       <div className="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-4">
         {!loading && !error && filteredProducts.map((product) => (
           <div className="col" key={product._id}>
@@ -359,7 +377,6 @@ export default function ProdukPage() {
           </div>
         ))}
         
-        {/* 6. Tampilkan pesan jika hasil filter kosong */}
         {!loading && !error && filteredProducts.length === 0 && (
           <Col xs={12} className="text-center py-5">
             <h5 className="text-muted fw-bold">Produk Tidak Ditemukan</h5>
@@ -368,7 +385,7 @@ export default function ProdukPage() {
         )}
       </div>
 
-      {/* --- MODAL EDIT (Tidak Berubah) --- */}
+      {/* --- MODAL EDIT --- */}
       {showEditModal && (
         <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }} onClick={handleCloseEditModal}>
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ width: '100%', maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
@@ -400,7 +417,17 @@ export default function ProdukPage() {
                       </div>
                       <div className="col-sm-6 mb-3">
                         <label className="form-label small fw-bold text-muted"><Archive size={14} /> Stok</label>
-                        <input type="number" min="0" className="form-control" name="stok" value={editFormData.stok} onChange={handleEditInputChange} required disabled={isSubmitting} />
+                        <input 
+                          type="number" 
+                          min="0" 
+                          className="form-control" 
+                          name="stok" 
+                          value={editFormData.stok} 
+                          onChange={handleEditInputChange} 
+                          onKeyDown={preventMinus} 
+                          required 
+                          disabled={isSubmitting} 
+                        />
                       </div>
                     </div>
                   </div>
@@ -421,7 +448,7 @@ export default function ProdukPage() {
         </div>
       )}
     
-      {/* --- MODAL TAMBAH (Tidak Berubah) --- */}
+      {/* --- MODAL TAMBAH --- */}
       {showAddModal && (
         <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" style={{ zIndex: 9998, backdropFilter: 'blur(5px)' }} onClick={handleCloseAddModal}>
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden" style={{ width: '100%', maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
@@ -456,7 +483,18 @@ export default function ProdukPage() {
                       </div>
                       <div className="col-sm-6 mb-3">
                         <label className="form-label small fw-bold text-muted"><Archive size={14} /> Stok</label>
-                        <input type="number" min="0" className="form-control" name="stok" value={newFormData.stok} onChange={handleNewInputChange} placeholder="10" required disabled={isSubmitting} />
+                        <input 
+                          type="number" 
+                          min="0" 
+                          className="form-control" 
+                          name="stok" 
+                          value={newFormData.stok} 
+                          onChange={handleNewInputChange} 
+                          onKeyDown={preventMinus} 
+                          placeholder="0" 
+                          required 
+                          disabled={isSubmitting} 
+                        />
                       </div>
                     </div>
                   </div>
@@ -477,7 +515,7 @@ export default function ProdukPage() {
         </div>
       )}
 
-      {/* --- MODAL KONFIRMASI HAPUS (Tidak Berubah) --- */}
+      {/* --- MODAL KONFIRMASI HAPUS --- */}
       {showDeleteModal && productToDelete && (
         <div 
           className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" 
