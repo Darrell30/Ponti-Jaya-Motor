@@ -44,6 +44,13 @@ cloudinary.config({
 });
 console.log('✅ Cloudinary configured successfully!');
 
+/* ================================================================
+   CATATAN PERUBAHAN: 
+   Bagian Nodemailer (SMTP) dikomentari/dinonaktifkan sepenuhnya 
+   untuk mencegah error TIMEOUT saat startup.
+   Kita menggantinya dengan fetch HTTP di bagian routing OTP.
+   ================================================================
+*/
 /*
 const transporter = nodemailer.createTransport({ ... });
 transporter.verify(...); 
@@ -117,22 +124,6 @@ const getRequestBody = (req) => {
     });
 };
 
-// --- FUNGSI BARU: PENGURANGAN STOK ---
-const updateProductStocks = async (order) => {
-    const stockUpdatePromises = order.items.map(item => {
-        // Hanya kurangi stok Sparepart (bukan Service)
-        if (item.itemType !== 'Sparepart') return Promise.resolve(); 
-        
-        return Sparepart.findByIdAndUpdate(
-            item.productId,
-            { $inc: { stok: -item.quantity } },
-            { new: true }
-        ).catch(err => console.error(`[Stock Update] Gagal kurangi stok produk ${item.productId}: ${err.message}`));
-    });
-    await Promise.all(stockUpdatePromises);
-};
-// ------------------------------------
-
 // Logika Utama Server
 const server = http.createServer(async (req, res) => {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
@@ -205,23 +196,19 @@ const server = http.createServer(async (req, res) => {
                 sendResponse(res, 500, { success: false, message: 'Server error' });
             }
         } 
-        // MODIFIKASI: POST SPAREPART (Tambahkan Kategori)
         else if (path === '/api/spareparts' && method === 'POST') {
             try {
                 const body = await getRequestBody(req);
-                // Pastikan body.kategori diterima di sini
-                const newSparepart = await Sparepart.create(body); 
+                const newSparepart = await Sparepart.create(body);
                 sendResponse(res, 201, { success: true, message: 'Created', data: newSparepart });
             } catch (error) {
                 sendResponse(res, 400, { success: false, message: error.message });
             }
         } 
-        // MODIFIKASI: PUT SPAREPART (Tambahkan Kategori)
         else if (method === 'PUT' && path.split('/').length === 4) {
             try {
                 const id = path.split('/')[3];
                 const body = await getRequestBody(req);
-                // Pastikan body.kategori diterima di sini
                 const updatedSparepart = await Sparepart.findByIdAndUpdate(id, body, { new: true, runValidators: true });
                 if (!updatedSparepart) return sendResponse(res, 404, { success: false, message: 'Not Found' });
                 sendResponse(res, 200, { success: true, message: 'Updated', data: updatedSparepart });
@@ -297,7 +284,9 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    // ==========================================================
     // MODIFIKASI: SEND OTP VIA BREVO HTTP API (Bukan SMTP)
+    // ==========================================================
     else if (path === '/api/send-otp' && method === 'POST') {
         try {
             const { email } = await getRequestBody(req);
@@ -474,48 +463,12 @@ const server = http.createServer(async (req, res) => {
             sendResponse(res, 200, { success: true, data: orders });
         } catch (e) { sendResponse(res, 500, { success: false }); }
     }
-    // MODIFIKASI: API Update Status Order (dengan Pengurangan Stok)
     else if (path === '/api/orders/status' && method === 'PUT') {
         try {
             const { orderId, newStatus } = await getRequestBody(req);
-            const order = await Order.findById(orderId);
-            if (!order) return sendResponse(res, 404, { success: false, message: 'Order tidak ditemukan' });
-
-            const oldStatus = order.status;
-            let updatedOrder = order;
-
-            // Logika Pengurangan Stok saat status berubah menjadi 'Diproses' atau 'Selesai'
-            const isStockUpdateRequired = 
-                (newStatus === 'Diproses' && oldStatus !== 'Diproses' && oldStatus !== 'Selesai') ||
-                (newStatus === 'Selesai' && oldStatus !== 'Diproses' && oldStatus !== 'Selesai');
-
-            if (isStockUpdateRequired) {
-                await updateProductStocks(order);
-                console.log(`[Stock] Stok berhasil dikurangi untuk Order ${orderId} (Status: ${newStatus})`);
-            } else if (newStatus === 'Selesai' && oldStatus === 'Tiba') {
-                // Kasus admin/user menandai Selesai setelah 'Tiba' (sudah Diproses sebelumnya)
-                console.log(`[Stock] Tidak ada pengurangan stok, karena sudah Diproses sebelumnya.`);
-            }
-
-            // Hapus dari Cart jika status Selesai
-            if (newStatus === 'Selesai' || newStatus === 'Dibatalkan') {
-                const itemProductIds = order.items.map(item => item.productId);
-                await Cart.findOneAndUpdate(
-                    { user: order.user },
-                    { $pull: { items: { productId: { $in: itemProductIds } } } },
-                    { new: true }
-                );
-            }
-            
-            // Update status
-            updatedOrder.status = newStatus;
-            await updatedOrder.save();
-            
+            const updatedOrder = await Order.findByIdAndUpdate(orderId, { status: newStatus }, { new: true });
             sendResponse(res, 200, { success: true, data: updatedOrder });
-        } catch (e) { 
-            console.error('[Update Status Error]', e.message);
-            sendResponse(res, 500, { success: false, message: e.message }); 
-        }
+        } catch (e) { sendResponse(res, 500, { success: false }); }
     }
     else if (path === '/api/orders' && method === 'GET') {
         try {
@@ -568,36 +521,26 @@ const server = http.createServer(async (req, res) => {
                 if (!userId || !items || !shippingAddress || !totalAmount) return sendResponse(res, 400, { success: false, message: 'Data tidak lengkap' });
                 const user = await User.findById(userId);
                 if (!user) return sendResponse(res, 404, { success: false, message: 'User tidak ditemukan' });
-
-                // --- LOGIKA ONGKIR: Hitung ongkir hanya jika ada Sparepart ---
-                const hasSparepart = items.some(item => item.itemType === 'Sparepart');
-                const finalTotalAmount = hasSparepart ? totalAmount : (totalAmount - 15000); // Hapus ongkir 15k jika hanya Jasa
-
                 orderToProcess = await Order.create({
                     user: userId,
                     items: items,
                     shippingAddress: shippingAddress,
                     paymentMethod: 'Midtrans', 
-                    totalAmount: finalTotalAmount, // Gunakan finalTotalAmount
+                    totalAmount: totalAmount,
                     status: 'Menunggu Pembayaran'
                 });
             }
             
             const user = await User.findById(orderToProcess.user); 
             
-            let productItems = orderToProcess.items.map(item => ({
+            const productItems = orderToProcess.items.map(item => ({
                 id: item.productId.toString(),
                 name: (item.nama || item.name || 'Produk').substring(0, 50),
                 price: parseInt(item.harga),
                 quantity: parseInt(item.quantity)
             }));
             
-            // Tambahkan ongkir ke item detail Midtrans jika totalAmount > sum(item prices)
-            const itemSum = productItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            if (orderToProcess.totalAmount > itemSum) {
-                 productItems.push({ id: 'SHIPPING', name: 'Ongkos Kirim', price: 15000, quantity: 1 });
-            }
-
+            productItems.push({ id: 'SHIPPING', name: 'Ongkos Kirim', price: 15000, quantity: 1 });
 
             const midtransOrderId = `${orderToProcess._id}-${Date.now()}`;
 
@@ -636,7 +579,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // MODIFIKASI: WEBHOOK MIDTRANS (dengan Pengurangan Stok)
+    // WEBHOOK MIDTRANS
     else if (path === '/api/midtrans/notifikasi' && method === 'POST') {
         console.log('[Webhook] Menerima notifikasi...');
         try {
@@ -661,34 +604,24 @@ const server = http.createServer(async (req, res) => {
                 return sendResponse(res, 404, { success: false });
             }
 
-            const oldStatus = order.status;
             let newStatus = order.status;
-            let isPaymentSuccess = false;
-
             if (transaction_status === 'capture') {
-                if (fraud_status === 'accept') { newStatus = 'Diproses'; isPaymentSuccess = true; }
+                if (fraud_status === 'accept') newStatus = 'Diproses';
             } else if (transaction_status === 'settlement') {
-                newStatus = 'Diproses'; isPaymentSuccess = true;
+                newStatus = 'Diproses';
             } else if (transaction_status === 'pending') {
                 newStatus = 'Menunggu Pembayaran';
             } else if (['deny', 'cancel', 'expire'].includes(transaction_status)) {
                 newStatus = 'Dibatalkan';
             }
-            
-            // Logika PENGURANGAN STOK (Hanya jika berhasil dan status sebelumnya BUKAN Diproses/Selesai)
-            if (isPaymentSuccess && oldStatus !== 'Diproses' && oldStatus !== 'Selesai') {
-                await updateProductStocks(order);
-                console.log(`[Webhook] Stok berhasil dikurangi untuk Order ${dbOrderId}`);
-            }
 
-            if (oldStatus !== newStatus) {
+            if (order.status !== newStatus) {
                 order.status = newStatus;
                 order.paymentMethod = payment_type; 
                 await order.save();
                 console.log(`[Webhook] Status updated: ${newStatus}`);
                 
-                // Hapus dari Cart hanya saat Diproses/Selesai
-                if (newStatus === 'Diproses' || newStatus === 'Selesai') {
+                if (newStatus === 'Diproses') {
                     const itemProductIds = order.items.map(item => item.productId);
                     await Cart.findOneAndUpdate(
                         { user: order.user },
@@ -727,20 +660,13 @@ const server = http.createServer(async (req, res) => {
             const senders = await Message.distinct('senderId', { isFromAdmin: false });
             let conversations = [];
             for (let uid of senders) {
-                const lastMsg = await Message.findOne({ $or: [{ senderId: uid, receiverId: 'admin' }, { senderId: 'admin', receiverId: uid }] }).sort({ createdAt: -1 });
+                const lastMsg = await Message.findOne({ senderId: uid }).sort({ createdAt: -1 });
                 if (lastMsg) {
-                    // Cek apakah user yang bersangkutan ada di DB
-                    const user = await User.findById(uid);
-                    if(user) {
-                         conversations.push({ userId: uid, userName: user.username, lastMessage: lastMsg.text, lastTime: lastMsg.createdAt });
-                    }
+                    conversations.push({ userId: uid, userName: lastMsg.senderName, lastMessage: lastMsg.text, lastTime: lastMsg.createdAt });
                 }
             }
             sendResponse(res, 200, { success: true, data: conversations });
-        } catch (e) { 
-            console.error(e);
-            sendResponse(res, 500, { success: false }); 
-        }
+        } catch (e) { sendResponse(res, 500, { success: false }); }
     }
     
     // 404

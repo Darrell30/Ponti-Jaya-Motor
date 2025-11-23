@@ -2,7 +2,7 @@
 
 import { 
   Container, Row, Col, Button, Image, Card, Spinner, 
-  Form, InputGroup, Modal, Alert, Toast, ToastContainer, Nav, Badge 
+  Form, InputGroup, Modal, Alert, Toast, ToastContainer, Nav 
 } from 'react-bootstrap';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation'; // Tambahkan useSearchParams
@@ -17,7 +17,7 @@ interface Product {
   harga: number;
   stok?: number;
   deskripsi?: string;
-  kategori?: 'Sparepart' | 'Ori' | 'KW'; // Gunakan kategori baru
+  kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW';
 }
 
 interface Service {
@@ -72,13 +72,7 @@ export default function ProdukPage() {
         let allProducts: Product[] = [];
         if (sparepartRes.ok) {
             const data = await sparepartRes.json();
-            if (data.success) {
-                // Pastikan setiap produk memiliki kategori, default ke 'Sparepart' jika null
-                allProducts = data.data.map((p: Product) => ({
-                    ...p,
-                    kategori: p.kategori || 'Sparepart' 
-                }));
-            }
+            if (data.success) allProducts = data.data;
         } else {
             throw new Error('Gagal mengambil data sparepart');
         }
@@ -90,7 +84,13 @@ export default function ProdukPage() {
         
         const serviceData = await serviceRes.json();
         
-        setProducts(allProducts as Product[]);
+        // Mapping dengan casting tipe agar TypeScript tidak error
+        const productsWithCategory = allProducts.map((p: Product) => ({
+            ...p,
+            kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart'
+        })) as Product[];
+
+        setProducts(productsWithCategory);
 
         if (serviceData.success) {
             setServices(serviceData.data.slice(0, 3));
@@ -98,8 +98,8 @@ export default function ProdukPage() {
 
       } catch (err: any) {
         const mockProducts: Product[] = [
-            { _id: '1', nama: 'Tensioner Ori', imageUrl: 'https://placehold.co/400x300/0d6efd/fff?text=Tensioner+Ori', harga: 75000, stok: 5, deskripsi: 'Komponen mekanis.', kategori: 'Ori' },
-            { _id: '2', nama: 'As Roda Depan KW', imageUrl: 'https://placehold.co/400x300/6c757d/fff?text=As+Roda+KW', harga: 245000, stok: 12, deskripsi: 'Poros utama roda.', kategori: 'KW' },
+            { _id: '1', nama: 'Veleg Racing 17"', imageUrl: 'https://placehold.co/400x300/0d6efd/fff?text=Veleg+Racing', harga: 850000, stok: 5, deskripsi: 'Veleg alloy ringan dan kuat.', kategori: 'Sparepart' },
+            { _id: '2', nama: 'Selang Rem Performance', imageUrl: 'https://placehold.co/400x300/6c757d/fff?text=Selang+Rem', harga: 150000, stok: 12, deskripsi: 'Meningkatkan respons pengereman.', kategori: 'Sparepart' },
           ];
         setProducts(mockProducts);
         setError(err.message);
@@ -108,7 +108,7 @@ export default function ProdukPage() {
       }
     };
     fetchProducts();
-  }, [searchQuery]); // Jalankan fetch ulang jika searchQuery berubah
+  }, []);
 
   // --- HANDLERS ---
   const handleCloseModal = () => { setShowModal(false); setSelectedProduct(null); };
@@ -160,7 +160,7 @@ export default function ProdukPage() {
       name: selectedProduct.nama, 
       price: selectedProduct.harga,
       image: selectedProduct.imageUrl, 
-      itemType: 'Sparepart', // Karena kita hanya menjual sparepart di sini
+      itemType: 'Sparepart', 
       quantity: quantity
     };
     try {
@@ -195,7 +195,7 @@ export default function ProdukPage() {
       harga: selectedProduct.harga,
       image: selectedProduct.imageUrl,
       quantity: quantity,
-      itemType: 'Sparepart' // MEMASTIKAN itemType dikirim untuk logika Ongkir
+      itemType: 'Sparepart' 
     };
     localStorage.setItem("checkoutItems", JSON.stringify([itemToCheckout]));
     handleCloseModal();
@@ -236,7 +236,7 @@ export default function ProdukPage() {
             imageUrl: selectedProduct.imageUrl,
             harga: selectedProduct.harga,
         };
-        setChatProduct(productToSend as any); 
+        setChatProduct(productToSend as any); // Bypass type check for ChatWidget prop if slightly different
     } else {
          setChatProduct(null);
     }
@@ -257,15 +257,15 @@ export default function ProdukPage() {
   // === LOGIKA FILTER & SEARCH UTAMA ===
   const filteredAndSortedProducts = products
     .filter(product => {
-      // 1. Filter Kategori (Gunakan kategori dari DB)
+      // 1. Filter Kategori
       let categoryMatch = true;
       if (activeCategory === 'Semua') categoryMatch = true;
-      // Filter kategori sekarang menggunakan field 'kategori' dari DB
       else if (activeCategory === 'Sparepart') categoryMatch = product.kategori === 'Sparepart';
-      else if (activeCategory === 'Ori') categoryMatch = product.kategori === 'Ori'; 
-      else if (activeCategory === 'KW') categoryMatch = product.kategori === 'KW';
+      else if (activeCategory === 'Ori') categoryMatch = product.nama.toLowerCase().includes('ori'); 
+      else if (activeCategory === 'KW') categoryMatch = product.nama.toLowerCase().includes('kw');
       
       // 2. Filter Search (Nama Produk)
+      // Jika ada searchQuery (dari URL), cek apakah nama produk mengandung kata tsb
       const searchMatch = product.nama.toLowerCase().includes(searchQuery.toLowerCase());
 
       return categoryMatch && searchMatch;
@@ -279,15 +279,6 @@ export default function ProdukPage() {
       }
       return 0;
     });
-    
-  // Helper untuk menampilkan badge kategori
-  const getKategoriBadge = (kategori: string) => {
-      switch(kategori) {
-          case 'Ori': return <Badge bg="success" className="ms-auto">Ori</Badge>;
-          case 'KW': return <Badge bg="danger" className="ms-auto">KW</Badge>;
-          default: return <Badge bg="secondary" className="ms-auto">Sparepart</Badge>;
-      }
-  };
 
   return (
     <>
@@ -352,7 +343,7 @@ export default function ProdukPage() {
                   onClick={() => handleShowModal(product)}
                 />
                 <Card.Body className="d-flex flex-column">
-                  <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div className="d-flex justify-content-between align-items-center">
                     <div className="me-2" style={{ minWidth: 0 }}>
                       <Card.Title as="h6" className="fw-bold text-dark mb-1 text-truncate" style={{ cursor: 'pointer' }} onClick={() => handleShowModal(product)}>
                         {product.nama}
@@ -365,16 +356,17 @@ export default function ProdukPage() {
                         })}
                       </Card.Text>
                     </div>
-                    {/* Tampilkan badge kategori */}
-                    {getKategoriBadge(product.kategori || 'Sparepart')}
+                    <div>
+                      <Button
+                        variant="primary"
+                        className="btn-cart-icon rounded-circle d-flex align-items-center justify-content-center"
+                        style={{ width: '35px', height: '35px', padding: 0 }}
+                        onClick={() => handleShowModal(product)}
+                      >
+                        <ShoppingCart size={18} />
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    variant="primary"
-                    className="btn-cart-icon rounded-3 d-flex align-items-center justify-content-center mt-auto"
-                    onClick={() => handleShowModal(product)}
-                  >
-                    <ShoppingCart size={18} className="me-2" /> Tambah
-                  </Button>
                 </Card.Body>
               </Card>
             </Col>
@@ -493,15 +485,6 @@ export default function ProdukPage() {
           </div>
         </Modal.Body>
       </Modal>
-      
-      <ChatWidget 
-         isOpen={isChatOpen} 
-         onClose={() => {
-            setIsChatOpen(false);
-            setChatProduct(null); 
-         }} 
-         productContext={chatProduct} 
-      />
     </>
   );
 }
