@@ -24,7 +24,14 @@ const sparepartSchema = new mongoose.Schema({
     imageUrl: {
         type: String,
         required: true
+    },
+    // --- PENAMBAHAN BARU ---
+    kategori: {
+        type: String,
+        enum: ['Sparepart', 'Ori', 'KW'], // Tambahkan enum kategori
+        default: 'Sparepart' // Default jika tidak diset
     }
+    // -----------------------
 }, {
     // TAMBAHAN: Memberitahu Mongoose nama collection yang TEPAT
     collection: 'Sparepart' 

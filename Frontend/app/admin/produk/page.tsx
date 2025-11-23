@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Form, InputGroup, Row, Col } from "react-bootstrap";
+import { Form, InputGroup, Row, Col, Badge } from "react-bootstrap";
 import { Edit, Plus, Upload, Package, DollarSign, Archive, FileText, Loader2, Trash2, AlertTriangle, Search } from "lucide-react";
 
 // --- Tipe data Produk (Dari Database) ---
@@ -12,28 +12,30 @@ interface Product {
   stok: number;
   deskripsi: string;
   imageUrl: string; 
+  kategori: 'Sparepart' | 'Ori' | 'KW'; // Tambahkan Kategori
 };
 
 // --- Tipe data untuk Form (State Lokal) ---
-// PERUBAHAN 1: Stok diubah jadi 'number | string' agar bisa dikosongkan (user friendly)
 type ProductFormState = {
   _id: string | null;
   nama: string;
   harga: string; 
-  stok: number | string; // <-- Diubah di sini
+  stok: number | string; 
   deskripsi: string;
   imageUrl: string; 
   imageFile?: File | null;
+  kategori: 'Sparepart' | 'Ori' | 'KW'; // Tambahkan Kategori
 };
 
 const newProductInitialState: ProductFormState = {
   _id: null,
   nama: '',
   harga: '',
-  stok: '', // Default kosong atau 0 (terserah preferensi), '' lebih bersih
+  stok: '',
   deskripsi: '',
   imageUrl: '', 
   imageFile: null,
+  kategori: 'Sparepart', // Default awal
 };
 
 export default function ProdukPage() {
@@ -123,13 +125,14 @@ export default function ProdukPage() {
       deskripsi: product.deskripsi,
       imageUrl: product.imageUrl,
       imageFile: null,
+      kategori: product.kategori || 'Sparepart', // Ambil kategori, default 'Sparepart' jika null
     });
     setModalError(null);
     setShowEditModal(true);
   };
   const handleCloseEditModal = () => setShowEditModal(false);
 
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'harga') {
       const cleanValue = value.replace(/\D/g, '');
@@ -147,7 +150,8 @@ export default function ProdukPage() {
         setEditFormData(prev => ({ ...prev, [name]: stokValue }));
       }
     } else {
-      setEditFormData(prev => ({ ...prev, [name]: value }));
+      // Menangani kategori
+      setEditFormData(prev => ({ ...prev, [name]: value as 'Sparepart' | 'Ori' | 'KW' }));
     }
   };
 
@@ -185,10 +189,11 @@ export default function ProdukPage() {
       const productData = {
         nama: editFormData.nama,
         harga: parseInt(editFormData.harga) || 0,
-        // PERBAIKAN 3: Konversi stok ke number saat simpan, jika kosong jadi 0
+        // Konversi stok ke number saat simpan, jika kosong jadi 0
         stok: editFormData.stok === "" ? 0 : Number(editFormData.stok),
         deskripsi: editFormData.deskripsi,
         imageUrl: finalImageUrl,
+        kategori: editFormData.kategori, // Kirim kategori
       };
 
       const updateResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts/${editFormData._id}`, {
@@ -220,14 +225,14 @@ export default function ProdukPage() {
   };
   const handleCloseAddModal = () => setShowAddModal(false);
 
-  const handleNewInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleNewInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'harga') {
       const cleanValue = value.replace(/\D/g, '');
       const formattedValue = cleanValue.replace(/^0+(?=\d)/, '');
       setNewFormData(prev => ({ ...prev, [name]: formattedValue }));
     } else if (name === 'stok') {
-      // PERBAIKAN 4: Izinkan nilai string kosong
+      // Izinkan nilai string kosong
       if (value === "") {
         setNewFormData(prev => ({ ...prev, [name]: "" }));
         return;
@@ -238,7 +243,8 @@ export default function ProdukPage() {
         setNewFormData(prev => ({ ...prev, [name]: stokValue }));
       }
     } else {
-      setNewFormData(prev => ({ ...prev, [name]: value }));
+      // Menangani kategori
+      setNewFormData(prev => ({ ...prev, [name]: value as 'Sparepart' | 'Ori' | 'KW' }));
     }
   };
 
@@ -275,10 +281,11 @@ export default function ProdukPage() {
       const productData = {
         nama: newFormData.nama,
         harga: parseInt(newFormData.harga) || 0,
-        // PERBAIKAN 5: Konversi stok ke number saat simpan
+        // Konversi stok ke number saat simpan
         stok: newFormData.stok === "" ? 0 : Number(newFormData.stok),
         deskripsi: newFormData.deskripsi,
         imageUrl: uploadData.url,
+        kategori: newFormData.kategori, // Kirim kategori
       };
 
       const createResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts`, {
@@ -308,6 +315,14 @@ export default function ProdukPage() {
     if (e.key === '-' || e.key === 'e' || e.key === 'E') {
         e.preventDefault();
     }
+  };
+  
+  const getKategoriBadge = (kategori: string) => {
+      switch(kategori) {
+          case 'Ori': return <Badge bg="success" className="ms-auto">Ori</Badge>;
+          case 'KW': return <Badge bg="danger" className="ms-auto">KW</Badge>;
+          default: return <Badge bg="secondary" className="ms-auto">Sparepart</Badge>;
+      }
   };
 
   return (
@@ -354,24 +369,25 @@ export default function ProdukPage() {
               <div className="bg-light rounded-3 mb-3 d-flex align-items-center justify-content-center overflow-hidden" style={{ height: '180px' }}>
                  <img src={product.imageUrl} alt={product.nama} className="w-100 h-100 object-fit-cover" />
               </div>
-              <div className="text-center">
-                <h6 className="fw-bold text-dark mb-3 text-truncate">{product.nama}</h6>
-                <div className="d-flex gap-2">
-                  <button 
-                    onClick={() => handleOpenEditModal(product)}
-                    className="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2 fw-bold py-2 rounded-3" 
-                    style={{backgroundColor: '#0d6efd'}}
-                  >
-                    <Edit size={16} /> Ubah
-                  </button>
-                  <button 
-                    onClick={() => handleOpenDeleteModal(product)}
-                    className="btn btn-danger d-flex align-items-center justify-content-center py-2 rounded-3 px-3"
-                    title="Hapus Produk"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                 <h6 className="fw-bold text-dark mb-0 text-truncate">{product.nama}</h6>
+                 {getKategoriBadge(product.kategori)}
+              </div>
+              <div className="d-flex gap-2">
+                <button 
+                  onClick={() => handleOpenEditModal(product)}
+                  className="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2 fw-bold py-2 rounded-3" 
+                  style={{backgroundColor: '#0d6efd'}}
+                >
+                  <Edit size={16} /> Ubah
+                </button>
+                <button 
+                  onClick={() => handleOpenDeleteModal(product)}
+                  className="btn btn-danger d-flex align-items-center justify-content-center py-2 rounded-3 px-3"
+                  title="Hapus Produk"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             </div>
           </div>
@@ -430,6 +446,21 @@ export default function ProdukPage() {
                         />
                       </div>
                     </div>
+                    {/* BARU: Input Kategori */}
+                    <div className="mb-3">
+                        <label className="form-label small fw-bold text-muted">Kategori</label>
+                        <Form.Select 
+                          name="kategori" 
+                          value={editFormData.kategori} 
+                          onChange={handleEditInputChange} 
+                          disabled={isSubmitting}
+                        >
+                            <option value="Sparepart">Sparepart (Umum)</option>
+                            <option value="Ori">Ori</option>
+                            <option value="KW">KW</option>
+                        </Form.Select>
+                    </div>
+                    {/* AKHIR BARU */}
                   </div>
                   <div className="col-12">
                     <label className="form-label small fw-bold text-muted"><FileText size={14} /> Deskripsi</label>
@@ -497,6 +528,21 @@ export default function ProdukPage() {
                         />
                       </div>
                     </div>
+                    {/* BARU: Input Kategori */}
+                    <div className="mb-3">
+                        <label className="form-label small fw-bold text-muted">Kategori</label>
+                        <Form.Select 
+                          name="kategori" 
+                          value={newFormData.kategori} 
+                          onChange={handleNewInputChange} 
+                          disabled={isSubmitting}
+                        >
+                            <option value="Sparepart">Sparepart (Umum)</option>
+                            <option value="Ori">Ori</option>
+                            <option value="KW">KW</option>
+                        </Form.Select>
+                    </div>
+                    {/* AKHIR BARU */}
                   </div>
                   <div className="col-12">
                     <label className="form-label small fw-bold text-muted"><FileText size={14} /> Deskripsi</label>

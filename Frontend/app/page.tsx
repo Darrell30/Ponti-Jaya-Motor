@@ -8,7 +8,7 @@ import {
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 // PERBAIKAN: Menambahkan MessageCircle ke import
-import { Loader2, MessageCircle } from 'lucide-react'; 
+import { Loader2, MessageCircle, ShoppingCart as ShoppingCartIcon } from 'lucide-react'; 
 // === BARU: Impor useRouter untuk redirect ===
 import { useRouter } from 'next/navigation';
 import ChatWidget from './components/ChatWidget'; 
@@ -22,6 +22,7 @@ interface Product {
   harga: number;
   stok?: number;
   deskripsi?: string;
+  // Kategori di homepage kita tetapkan 'Sparepart' atau 'Jasa'
   kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW'; 
 }
 
@@ -106,9 +107,10 @@ export default function Home() {
 
         // Proses data sparepart
         if (sparepartData.success) {
+          // Kita anggap semua yang dari sparepart API adalah sparepart di homepage
           const allProducts: Product[] = sparepartData.data.map((p: Product) => ({
             ...p,
-            kategori: p.nama.includes('Jasa') ? 'Jasa' : 'Sparepart' 
+            kategori: 'Sparepart' // Tetapkan tipe utama sparepart untuk modal cart
           })) as Product[];
           
           const filteredFeatured = allProducts.filter(product =>
@@ -126,7 +128,7 @@ export default function Home() {
 
         // Proses data jasa
         if (serviceData.success) {
-          setServices(serviceData.data.slice(0, 3)); 
+          setServices(serviceData.data); // Ambil SEMUA jasa, di-render dengan scroll
         } else {
           throw new Error(serviceData.message || 'Gagal memuat data jasa');
         }
@@ -142,6 +144,7 @@ export default function Home() {
     fetchAllData();
   }, [router]); 
 
+  // --- HANDLER CHAT JASA (PENTING: Jasa TIDAK masuk Keranjang) ---
   const handleServiceChat = (service: Service) => {
     const userInfoString = localStorage.getItem("userInfo");
     
@@ -158,18 +161,18 @@ export default function Home() {
       nama: service.nama,
       imageUrl: service.imageUrl,
       harga: service.harga,
-      stok: 1, // Service, tidak ada stok
+      stok: 1, 
       deskripsi: service.deskripsi,
-      kategori: 'Jasa'
+      kategori: 'Jasa' // Tipe Jasa
     };
     
     // Set konteks produk dan buka widget
-    setChatProduct(serviceAsProduct); // Sekarang ini tidak akan error
-    setIsChatOpen(true);              // Ini juga aman
+    setChatProduct(serviceAsProduct); 
+    setIsChatOpen(true);              
   };
 
 
-  // === Handlers Modal ===
+  // === Handlers Modal Sparepart ===
   const handleCloseModal = () => { setShowModal(false); setSelectedProduct(null); };
   const handleShowModal = (product: Product) => {
     setSelectedProduct(product);
@@ -221,11 +224,11 @@ export default function Home() {
       name: selectedProduct.nama, 
       price: selectedProduct.harga,
       image: selectedProduct.imageUrl, 
-      itemType: selectedProduct.kategori === 'Jasa' ? 'Service' : 'Sparepart', 
+      itemType: selectedProduct.kategori === 'Jasa' ? 'Service' : 'Sparepart', // Gunakan itemType yang benar
       quantity: quantity
     };
     try {
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/add', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cartItemData)
@@ -411,17 +414,25 @@ export default function Home() {
       </Container>
 
       
-      {/* === 4. JASA KAMI === */}
+      {/* === 4. JASA KAMI (MODIFIKASI: Horizontal Scroll) === */}
       <Container as="section" className="py-5" id="jasa"> 
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         
         {loading && (<div className="text-center"><Spinner animation="border" /></div>)}
         {error && <p className="text-danger text-center">{error}</p>}
         
-        <Row className="g-4 row-cols-1 row-cols-md-3">
+        {/* Modifikasi di sini: Mengganti Row dengan div untuk horizontal scroll */}
+        <div 
+          className="d-flex flex-row gap-4 overflow-auto pb-3" 
+          style={{ whiteSpace: 'nowrap' }}
+        >
           {!loading && !error && services.map((service) => (
-            <Col key={service._id} className="mb-4">
-              <Card className="text-white border-0 rounded-3 overflow-hidden">
+            <div 
+                key={service._id} 
+                className="col-lg-4 col-md-6 col-sm-12" // Kelas kolom untuk menjaga ukuran item
+                style={{ minWidth: '320px', flexGrow: 0, flexShrink: 0 }} // Kontrol ukuran untuk scroll
+            >
+              <Card className="text-white border-0 rounded-3 overflow-hidden shadow-sm">
                 <Card.Img
                   src={service.imageUrl}
                   alt={service.nama}
@@ -444,9 +455,10 @@ export default function Home() {
                   </Button>
                 </Card.ImgOverlay>
               </Card>
-            </Col>
+            </div>
           ))}
-        </Row>
+        </div>
+        
       </Container>
 
       

@@ -25,6 +25,7 @@ interface CheckoutItem {
   harga: number; 
   image: string;
   quantity: number;
+  itemType?: 'Sparepart' | 'Service'; // TAMBAHKAN itemType
 }
 
 interface MapCenter { lat: number; lng: number; }
@@ -61,7 +62,7 @@ export default function PembayaranPage() {
     libraries: libraries,
   });
 
-  // --- EFEK: MEMUAT SCRIPT MIDTRANS SNAP JS (SOLUSI DARI ERROR 401) ---
+  // --- EFEK: MEMUAT SCRIPT MIDTRANS SNAP JS ---
   useEffect(() => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
@@ -114,7 +115,9 @@ export default function PembayaranPage() {
     document.body.appendChild(script);
 
     return () => {
-      document.body.removeChild(script);
+      if(document.body.contains(script)) {
+         document.body.removeChild(script);
+      }
     };
 
   }, [router]);
@@ -187,7 +190,7 @@ export default function PembayaranPage() {
     }
     setShowAddressModal(true);
   };
-  const handleCloseAddressModal = () => setShowAddressModal(false);
+  const handleCloseAddressModal = () => handleSaveAddress();
   const handleSaveAddress = async () => {
     setAddress(tempAddress);
     if (userId) {
@@ -207,7 +210,7 @@ export default function PembayaranPage() {
         console.error("Gagal simpan alamat ke profil:", err);
       }
     }
-    handleCloseAddressModal();
+    setShowAddressModal(false);
   };
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     if (newQuantity < 1) newQuantity = 1; 
@@ -223,12 +226,17 @@ export default function PembayaranPage() {
     );
   };
 
-  // Kalkulasi Total (SAMA)
+  // Kalkulasi Subtotal (SAMA)
   const subtotal = items.reduce((acc, item) => acc + (item.harga * item.quantity), 0);
-  const shippingCost = 15000; 
+  
+  // === MODIFIKASI: KALKULASI ONGKOS KIRIM ===
+  const hasSparepart = items.some(item => item.itemType === 'Sparepart');
+  const shippingCost = hasSparepart ? 15000 : 0; 
+  // ==========================================
+
   const grandTotal = subtotal + shippingCost;
 
-  // === FUNGSI UTAMA: TOMBOL BAYAR (PERBAIKAN REDIRECT) ===
+  // === FUNGSI UTAMA: TOMBOL BAYAR (SAMA) ===
   const handleBayar = async () => {
     if (items.length === 0) { setError("Tidak ada item di checkout Anda."); return; }
     if (!userId) { setError("Sesi Anda berakhir. Harap login kembali."); return; }
@@ -244,10 +252,11 @@ export default function PembayaranPage() {
         nama: item.nama || item.name, 
         harga: item.harga,
         image: item.image,
-        quantity: item.quantity
+        quantity: item.quantity,
+        itemType: item.itemType // Kirim itemType, penting untuk backend/webhook
       })),
       shippingAddress: address,
-      totalAmount: grandTotal,
+      totalAmount: grandTotal, // Kirim grandTotal yang sudah disesuaikan
     };
 
     try {
@@ -363,6 +372,9 @@ export default function PembayaranPage() {
                     <Col>
                       <h6 className="mb-1 fw-bold text-dark small">{item.nama || item.name}</h6>
                       <p className="text-secondary small mb-0">{item.quantity} x {item.harga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</p>
+                      {item.itemType === 'Service' && (
+                          <span className="badge bg-info text-dark small fw-normal">Jasa</span>
+                      )}
                     </Col>
                     <Col xs="auto" className="d-flex align-items-center justify-content-end">
                       <Button 
@@ -406,7 +418,7 @@ export default function PembayaranPage() {
 
           </Col>
 
-          {/* 4. Kolom Kanan: Ringkasan Belanja (SAMA) */}
+          {/* 4. Kolom Kanan: Ringkasan Belanja (MODIFIKASI: Ongkir) */}
           <Col lg={4}>
             <Card className="shadow-sm border-0 rounded-3 sticky-top" style={{ top: '100px' }}>
               <Card.Body className="p-4">
@@ -415,10 +427,18 @@ export default function PembayaranPage() {
                   <span className="text-secondary small">Subtotal ({items.length} Produk)</span>
                   <span className="fw-bold text-dark small">{subtotal.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</span>
                 </div>
+                
+                {/* MODIFIKASI ONGKIR */}
                 <div className="d-flex justify-content-between mb-3">
                   <span className="text-secondary small">Ongkos Kirim</span>
-                  <span className="fw-bold text-dark small">{shippingCost.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}</span>
+                  <span className="fw-bold text-dark small">
+                    {shippingCost > 0 
+                        ? shippingCost.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }) 
+                        : 'Gratis (Hanya Jasa)'}
+                  </span>
                 </div>
+                {/* AKHIR MODIFIKASI ONGKIR */}
+
                 <hr className="my-3" />
                 <div className="d-flex justify-content-between mb-3">
                   <span className="fw-bold text-dark fs-5">Total Bayar</span>
@@ -503,7 +523,7 @@ export default function PembayaranPage() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline-secondary" onClick={handleCloseAddressModal} disabled={isSaving}>
+          <Button variant="outline-secondary" onClick={() => setShowAddressModal(false)} disabled={isSaving}>
             Batal
           </Button>
           <Button variant="primary" onClick={handleSaveAddress} disabled={isSaving || !isLoaded} className="fw-bold">
