@@ -261,7 +261,10 @@ export default function ProdukPage() {
       let categoryMatch = true;
       if (activeCategory === 'Semua') categoryMatch = true;
       else if (activeCategory === 'Sparepart') categoryMatch = product.kategori === 'Sparepart';
-      
+      else if (activeCategory === 'Ori') categoryMatch = product.nama.toLowerCase().includes('ori'); 
+      else if (activeCategory === 'KW') categoryMatch = product.nama.toLowerCase().includes('kw');
+
+
       // 2. Filter Search (Nama Produk)
       // Jika ada searchQuery (dari URL), cek apakah nama produk mengandung kata tsb
       const searchMatch = product.nama.toLowerCase().includes(searchQuery.toLowerCase());

@@ -1,18 +1,23 @@
 'use client';
 
-// 1. MODIFIKASI: Tambahkan import untuk Modal, Form, Toast, Alert, dan Loader2
+// 1. IMPORT BOOTSTRAP & UTILS
 import { 
   Container, Row, Col, Button, Image, Card, Spinner,
   Modal, Form, Alert, Toast, ToastContainer 
 } from 'react-bootstrap';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-// PERBAIKAN: Menambahkan MessageCircle ke import
 import { Loader2, MessageCircle } from 'lucide-react'; 
-// === BARU: Impor useRouter untuk redirect ===
 import { useRouter } from 'next/navigation';
 import ChatWidget from './components/ChatWidget'; 
 
+// 2. IMPORT SWIPER (Untuk Carousel)
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Autoplay, Pagination } from 'swiper/modules';
+
+// 3. IMPORT CSS SWIPER (Wajib ada)
+import 'swiper/css';
+import 'swiper/css/pagination';
 
 // === TIPE DATA ===
 interface Product {
@@ -25,7 +30,6 @@ interface Product {
   kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW'; 
 }
 
-// TIPE BARU UNTUK JASA
 interface Service {
   _id: string;
   nama: string;
@@ -34,7 +38,7 @@ interface Service {
   deskripsi?: string;
 }
 
-// === DAFTAR FILTER NAMA (Tidak Berubah) ===
+// === DAFTAR FILTER NAMA ===
 const featuredProductNames = [
   "Veleg",
   "Selang Rem",
@@ -54,13 +58,10 @@ const bestSellingProductNames = [
 ];
 
 // === KOMPONEN UTAMA ===
-
 export default function Home() {
-  // === BARU: Inisialisasi router ===
   const router = useRouter();
-  // =================================
 
-  // === STATE (DIPERBARUI) ===
+  // === STATE ===
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]); 
@@ -68,7 +69,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // === BARU: State Modal ===
+  // State Modal
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1); 
@@ -77,24 +78,22 @@ export default function Home() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // === PERBAIKAN: STATE UNTUK CHAT WIDGET ===
-  // State ini yang sebelumnya hilang sehingga menyebabkan error 'setChatProduct not found'
+  // State Chat Widget
   const [chatProduct, setChatProduct] = useState<Product | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  // ==========================================
 
   const whatsappNumber = "6281297575567";
   const shopEmail = "edward.stiawan06@gmail.com"; 
   const emailSubject = "Pertanyaan Mengenai Ponti Jaya Motor";
   const mailtoUrl = `mailto:${shopEmail}?subject=${encodeURIComponent(emailSubject)}`;
 
-  // === LOGIKA FETCH (DIPERBARUI) ===
+  // === LOGIKA FETCH ===
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         const [sparepartRes, serviceRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`) // <-- PANGGILAN API BARU
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`)
         ]);
 
         if (!sparepartRes.ok || !serviceRes.ok) {
@@ -126,7 +125,8 @@ export default function Home() {
 
         // Proses data jasa
         if (serviceData.success) {
-          setServices(serviceData.data.slice(0, 4)); 
+          // MODIFIKASI: Ambil semua data agar carousel bisa berputar
+          setServices(serviceData.data); 
         } else {
           throw new Error(serviceData.message || 'Gagal memuat data jasa');
         }
@@ -145,27 +145,24 @@ export default function Home() {
   const handleServiceChat = (service: Service) => {
     const userInfoString = localStorage.getItem("userInfo");
     
-    // Cek Login
     if (!userInfoString) {
       alert("Silakan login terlebih dahulu untuk bertanya tentang jasa.");
       router.push('/login');
       return;
     }
 
-    // Ubah data 'Service' menjadi format 'Product' agar dibaca oleh ChatWidget
     const serviceAsProduct: Product = {
       _id: service._id,
       nama: service.nama,
       imageUrl: service.imageUrl,
       harga: service.harga,
-      stok: 1, // Service, tidak ada stok
+      stok: 1, 
       deskripsi: service.deskripsi,
       kategori: 'Jasa'
     };
     
-    // Set konteks produk dan buka widget
-    setChatProduct(serviceAsProduct); // Sekarang ini tidak akan error
-    setIsChatOpen(true);              // Ini juga aman
+    setChatProduct(serviceAsProduct);
+    setIsChatOpen(true);
   };
 
 
@@ -225,7 +222,7 @@ export default function Home() {
       quantity: quantity
     };
     try {
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/add', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cartItemData)
@@ -258,10 +255,7 @@ export default function Home() {
       router.push('/login'); 
       return; 
     }
-    // Tutup modal produk
     handleCloseModal();
-    
-    // Set chat ke produk yang sedang dibuka di modal
     if (selectedProduct) {
         setChatProduct(selectedProduct);
         setIsChatOpen(true);
@@ -270,11 +264,9 @@ export default function Home() {
     }
   };
 
-
   return (
     <main style={{ backgroundColor: "#fff" }}>
       
-      {/* === 1. HERO SECTION === */}
       <div
         id="hero"
         className="text-center text-white"
@@ -295,20 +287,10 @@ export default function Home() {
               </p>
               <div className="d-flex gap-3 justify-content-center">
                 <Link href="/produk" passHref legacyBehavior>
-                  <Button
-                    size="lg"
-                    className="px-4 fw-bold rounded-3 btn-hero-primary"
-                  >
-                    Lihat Katalog
-                  </Button>
+                  <Button size="lg" className="px-4 fw-bold rounded-3 btn-hero-primary">Lihat Katalog</Button>
                 </Link>
                 <Link href="/#jasa" passHref legacyBehavior>
-                  <Button
-                    size="lg"
-                    className="px-4 fw-bold rounded-3 btn-hero-secondary"
-                  >
-                    Jasa Servis
-                  </Button>
+                  <Button size="lg" className="px-4 fw-bold rounded-3 btn-hero-secondary">Jasa Servis</Button>
                 </Link>
               </div>
             </Col>
@@ -319,12 +301,7 @@ export default function Home() {
       {/* === 2. PRODUK YANG PALING DI CARI-CARI === */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
-        
-        {loading && (
-          <div className="text-center">
-            <Spinner animation="border" role="status" />
-          </div>
-        )}
+        {loading && (<div className="text-center"><Spinner animation="border" role="status" /></div>)}
         {error && <p className="text-danger text-center">Error: {error}</p>}
 
         <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 justify-content-center">
@@ -340,28 +317,18 @@ export default function Home() {
                 alt={product.nama}
                 roundedCircle
                 className="shadow-sm mb-3"
-                style={{
-                  width: '120px',
-                  height: '120px',
-                  objectFit: 'cover'
-                }}
+                style={{ width: '120px', height: '120px', objectFit: 'cover' }}
               />
               <h6 className="fw-bold text-dark">{product.nama}</h6>
             </Col>
           ))}
         </Row>
       </Container>
-
       
       {/* === 3. PRODUK TERLARIS === */}
       <Container as="section" className="py-5 bg-light">
         <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
-        
-        {loading && (
-          <div className="text-center">
-            <Spinner animation="border" role="status" />
-          </div>
-        )}
+        {loading && (<div className="text-center"><Spinner animation="border" role="status" /></div>)}
         {error && <p className="text-danger text-center">Error: {error}</p>}
         
         <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
@@ -375,9 +342,7 @@ export default function Home() {
                   style={{ height: '150px', objectFit: 'cover', cursor: 'pointer' }}
                   onClick={() => handleShowModal(product)} 
                 />
-                <Card.Body
-                  className="d-flex flex-column pt-3 px-3 pb-4"
-                >
+                <Card.Body className="d-flex flex-column pt-3 px-3 pb-4">
                   <Card.Title 
                     as="h5" 
                     className="fw-bold text-dark mb-1"
@@ -387,11 +352,7 @@ export default function Home() {
                     {product.nama}
                   </Card.Title>
                   <Card.Text className="text-dark fw-bold fs-5 mb-3">
-                    {product.harga.toLocaleString('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR',
-                      minimumFractionDigits: 0 
-                    })}
+                    {product.harga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
                   </Card.Text>
                   
                   <Button
@@ -399,56 +360,70 @@ export default function Home() {
                     className="w-100 mt-auto rounded-3 btn-add-to-cart"
                     onClick={() => handleShowModal(product)} 
                   >
-                    <i className="bi bi-cart-plus"></i>
-                    Tambah
+                    <i className="bi bi-cart-plus"></i> Tambah
                   </Button>
-
                 </Card.Body>
               </Card>
             </Col>
           ))}
         </Row>
       </Container>
-
       
-      {/* === 4. JASA KAMI === */}
       <Container as="section" className="py-5" id="jasa"> 
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         
         {loading && (<div className="text-center"><Spinner animation="border" /></div>)}
         {error && <p className="text-danger text-center">{error}</p>}
         
-        <Row className="g-4 row-cols-1 row-cols-md-3">
-          {!loading && !error && services.map((service) => (
-            <Col key={service._id} className="mb-4">
-              <Card className="text-white border-0 rounded-3 overflow-hidden">
-                <Card.Img
-                  src={service.imageUrl}
-                  alt={service.nama}
-                  style={{ height: '250px', objectFit: 'cover' }}
-                />
-                <Card.ImgOverlay
-                  className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
-                  style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-                >
-                  <Card.Title as="h2" className="fw-bold mb-3">
-                    {service.nama}
-                  </Card.Title>
-                  <Button
-                    variant="primary"
-                    className="rounded-3 btn-service-wa"
-                    onClick={() => handleServiceChat(service)} 
+        {!loading && !error && (
+          <Swiper
+            modules={[Autoplay, Pagination]}
+            spaceBetween={24}
+            slidesPerView={1}
+            loop={true}
+            autoplay={{
+              delay: 3500, // Bergerak setiap 3.5 detik
+              disableOnInteraction: false,
+            }}
+            pagination={{ clickable: true }}
+            breakpoints={{
+              640: { slidesPerView: 2 },
+              768: { slidesPerView: 3 },
+              1024: { slidesPerView: 4 }, // Menampilkan 4 dalam 1 baris di layar besar
+            }}
+            className="pb-5" // Padding bawah untuk bullet pagination
+            style={{ paddingBottom: '50px' }}
+          >
+            {services.map((service) => (
+              <SwiperSlide key={service._id}>
+                <Card className="text-white border-0 rounded-3 overflow-hidden h-100">
+                  <Card.Img
+                    src={service.imageUrl}
+                    alt={service.nama}
+                    style={{ height: '250px', objectFit: 'cover', width: '100%' }}
+                  />
+                  <Card.ImgOverlay
+                    className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
+                    style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
                   >
-                    <MessageCircle size={18} className="me-2" style={{ fontSize: '1.2rem' }}/> 
-                    Hubungi Kami
-                  </Button>
-                </Card.ImgOverlay>
-              </Card>
-            </Col>
-          ))}
-        </Row>
+                    <Card.Title as="h2" className="fw-bold mb-3" style={{ fontSize: '1.5rem' }}>
+                      {service.nama}
+                    </Card.Title>
+                    <Button
+                      variant="primary"
+                      className="rounded-3 btn-service-wa"
+                      onClick={() => handleServiceChat(service)} 
+                    >
+                      <MessageCircle size={18} className="me-2" style={{ fontSize: '1.2rem' }}/> 
+                      Hubungi Kami
+                    </Button>
+                  </Card.ImgOverlay>
+                </Card>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        )}
       </Container>
-
       
       {/* === 5. SECTION TENTANG KAMI === */}
       <Container as="section" className="py-5 bg-light">
@@ -473,7 +448,6 @@ export default function Home() {
           </Row>
         </div>
       </Container>
-
 
       {/* === 6. SECTION HUBUNGI KAMI === */}
       <Container as="section" className="py-5" id="hubungi"> 
@@ -501,16 +475,14 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <i className="bi bi-whatsapp"></i>
-                WhatsApp
+                <i className="bi bi-whatsapp"></i> WhatsApp
               </Button>
               <Button 
                 variant="primary" 
                 className="btn-contact-email"
                 href={mailtoUrl}
               >
-                <i className="bi bi-envelope-fill"></i>
-                Email
+                <i className="bi bi-envelope-fill"></i> Email
               </Button>
             </div>
           </Col>
@@ -588,8 +560,6 @@ export default function Home() {
         </Toast>
       </ToastContainer>
 
-      {/* === PERBAIKAN: RENDER CHAT WIDGET === */}
-      {/* Chat Widget perlu dirender di sini agar muncul */}
       <ChatWidget 
         productContext={chatProduct} 
         isOpen={isChatOpen} 
