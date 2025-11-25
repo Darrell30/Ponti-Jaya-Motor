@@ -13,6 +13,15 @@ import { Loader2, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ChatWidget from './components/ChatWidget'; 
 
+// 2. IMPORT SWIPER (Untuk Carousel)
+import { Swiper, SwiperSlide } from 'swiper/react';
+// Import modul yang dibutuhkan: Autoplay agar bergerak sendiri, Pagination untuk titik-titik
+import { Autoplay, Pagination } from 'swiper/modules';
+
+// 3. IMPORT CSS SWIPER (Wajib ada agar layout tidak hancur)
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/autoplay'; // Tambahan css autoplay (optional di versi baru tapi aman dipasang)
 
 // === TIPE DATA ===
 interface Product {
@@ -126,7 +135,7 @@ export default function Home() {
 
         // Proses data jasa
         if (serviceData.success) {
-          setServices(serviceData.data.slice(0, 4)); 
+          setServices(serviceData.data); 
         } else {
           throw new Error(serviceData.message || 'Gagal memuat data jasa');
         }
@@ -243,13 +252,58 @@ export default function Home() {
     }
   };
   
-  const handleBeliLangsung = () => {
+  const handleBeliLangsung = async () => {
     const userInfoString = localStorage.getItem("userInfo");
     if (!userInfoString) {
       router.push('/login'); 
       return; 
     }
-    alert('Fitur "Beli Langsung" sedang dalam pengembangan.');
+
+    setIsSubmitting(true);
+    setModalMessage(null);
+
+    const userInfo = JSON.parse(userInfoString);
+    const userId = userInfo.userId;
+
+    if (!selectedProduct) {
+      setModalMessage({ type: 'error', text: 'Produk tidak valid.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 2. Siapkan Data
+    const cartItemData = {
+      userId: userId, 
+      productId: selectedProduct._id,
+      name: selectedProduct.nama, 
+      price: selectedProduct.harga,
+      image: selectedProduct.imageUrl, 
+      itemType: selectedProduct.kategori === 'Jasa' ? 'Service' : 'Sparepart', 
+      quantity: quantity
+    };
+
+    try {
+      // 3. Simpan ke Database
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cartItemData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Gagal memproses pembelian');
+      }
+
+      handleCloseModal();
+      router.push('/keranjang');
+
+    } catch (err: any) {
+      setModalMessage({ type: 'error', text: err.message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const handleChatToko = () => {
@@ -411,33 +465,49 @@ export default function Home() {
       </Container>
 
       
-      {/* === 4. JASA KAMI === */}
+      {/* === 4. JASA KAMI (CAROUSEL: TAMPIL 3, AUTO SLIDE) === */}
       <Container as="section" className="py-5" id="jasa"> 
         <h3 className="fw-bold mb-5 text-dark">Jasa Kami</h3>
         
         {loading && (<div className="text-center"><Spinner animation="border" /></div>)}
         {error && <p className="text-danger text-center">{error}</p>}
         
-        <Row className="g-4 row-cols-1 row-cols-md-3">
-          {!loading && !error && services.map((service) => (
-            <Col key={service._id} className="mb-4">
-              <Card className="text-white border-0 rounded-3 overflow-hidden">
-                <Card.Img
-                  src={service.imageUrl}
-                  alt={service.nama}
-                  style={{ height: '250px', objectFit: 'cover' }}
-                />
-                <Card.ImgOverlay
-                  className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
-                  style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-                >
-                  <Card.Title as="h2" className="fw-bold mb-3">
-                    {service.nama}
-                  </Card.Title>
-                  <Button
-                    variant="primary"
-                    className="rounded-3 btn-service-wa"
-                    onClick={() => handleServiceChat(service)} 
+        {!loading && !error && (
+          <Swiper
+            // PENTING: Modules ini harus ada agar autoplay jalan
+            modules={[Autoplay, Pagination]} 
+            
+            spaceBetween={30} 
+            slidesPerView={1} 
+            
+            loop={true} 
+            autoplay={{
+              delay: 3000, 
+              disableOnInteraction: false, 
+            }}
+            pagination={{ clickable: true }} 
+
+            // Responsiveness (Breakpoints)
+            breakpoints={{
+              640: { slidesPerView: 1 }, 
+              768: { slidesPerView: 2 }, 
+              1024: { slidesPerView: 3 }, 
+            }}
+
+            className="pb-5" // Ruang untuk pagination dots
+            style={{ paddingBottom: '50px' }}
+          >
+            {services.map((service) => (
+              <SwiperSlide key={service._id}>
+                <Card className="text-white border-0 rounded-3 overflow-hidden h-100">
+                  <Card.Img
+                    src={service.imageUrl}
+                    alt={service.nama}
+                    style={{ height: '250px', objectFit: 'cover', width: '100%' }}
+                  />
+                  <Card.ImgOverlay
+                    className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
+                    style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
                   >
                     <MessageCircle size={18} className="me-2" style={{ fontSize: '1.2rem' }}/> 
                     Hubungi Kami
