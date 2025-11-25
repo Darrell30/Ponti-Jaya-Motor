@@ -34,7 +34,6 @@ const MOCK_SERVICES: Service[] = [
   { _id: 's1', nama: 'Servis Rem', imageUrl: 'https://placehold.co/800x400/333/FFF?text=Servis+Rem', harga: 50000, deskripsi: 'Pengecekan dan penggantian kampas rem berkualitas.' },
   { _id: 's2', nama: 'Ganti Oli Mesin', imageUrl: 'https://placehold.co/800x400/555/FFF?text=Ganti+Oli', harga: 35000, deskripsi: 'Ganti oli mesin agar performa motor tetap prima.' },
   { _id: 's3', nama: 'Servis Mesin Ringan', imageUrl: 'https://placehold.co/800x400/777/FFF?text=Servis+Mesin', harga: 150000, deskripsi: 'Tune up ringan dan pembersihan karburator/injeksi.' },
-  { _id: 's4', nama: 'Servis CVT', imageUrl: 'https://placehold.co/800x400/999/FFF?text=Servis+CVT', harga: 85000, deskripsi: 'Perawatan area CVT agar tarikan enteng dan responsif.' }
 ];
 
 const MOCK_PRODUCTS: Product[] = [
@@ -44,12 +43,10 @@ const MOCK_PRODUCTS: Product[] = [
   { _id: 'p4', nama: 'Master Rem', imageUrl: 'https://placehold.co/300x300/198754/fff?text=Master+Rem', harga: 350000, stok: 3, deskripsi: 'Original part.', kategori: 'Sparepart' },
   { _id: 'p5', nama: 'Klahar Roda', imageUrl: 'https://placehold.co/300x300/dc3545/fff?text=Klahar', harga: 45000, stok: 50, deskripsi: 'Presisi tinggi.', kategori: 'Sparepart' },
   { _id: 'p6', nama: 'Tabung Central', imageUrl: 'https://placehold.co/300x300/6610f2/fff?text=Tabung', harga: 120000, stok: 8, deskripsi: 'Kualitas terjamin.', kategori: 'Sparepart' },
-  { _id: 'p7', nama: 'Seal Lahar Bambu', imageUrl: 'https://placehold.co/300x300/fd7e14/fff?text=Seal', harga: 25000, stok: 100, deskripsi: 'Tahan bocor.', kategori: 'Sparepart' },
-  { _id: 'p8', nama: 'Master Central', imageUrl: 'https://placehold.co/300x300/20c997/fff?text=Master+C', harga: 450000, stok: 2, deskripsi: 'Full set original.', kategori: 'Sparepart' },
 ];
 
 const featuredProductNames = [
-  "Veleg", "Selang Rem", "Kampas Rem", "Seal Lahar Bambu", "Klahar Roda", "Tabung Central"
+  "Veleg", "Selang Rem", "Kampas Rem", "Master Rem", "Klahar Roda", "Tabung Central"
 ];
 
 const bestSellingProductNames = [
