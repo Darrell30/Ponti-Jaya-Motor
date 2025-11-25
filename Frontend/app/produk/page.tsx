@@ -301,20 +301,6 @@ export default function ProdukPage() {
         )}
 
         <Row className="mb-4 align-items-center">
-          <Col md={8}>
-            <Nav variant="pills" className="filter-pills" activeKey={activeCategory}>
-              {['Semua', 'Sparepart', 'Ori', 'KW'].map((category) => (
-                <Nav.Item key={category}>
-                  <Nav.Link 
-                    eventKey={category} 
-                    onClick={() => setActiveCategory(category)}
-                  >
-                    {category}
-                  </Nav.Link>
-                </Nav.Item>
-              ))}
-            </Nav>
-          </Col>
           <Col md={4} className="mt-3 mt-md-0">
             <Form.Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
               <option value="Terbaru">Urutkan: Terbaru</option>
