@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "../components/Sidebar"; 
-import { Store, Loader2, AlertTriangle } from "lucide-react"; // Tambah icon AlertTriangle
+import { Store, Loader2, AlertTriangle, Menu, X } from "lucide-react"; // Tambah Menu dan X
 
 export default function AdminLayout({
   children,
@@ -17,9 +17,10 @@ export default function AdminLayout({
   const [isStoreOpen, setIsStoreOpen] = useState(true); 
   const [isLoadingStatus, setIsLoadingStatus] = useState(true); 
 
-  
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-
+  
+  // --- STATE BARU: Untuk Mobile Sidebar ---
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const loginStatus = localStorage.getItem("isAdminLoggedIn");
@@ -42,16 +43,13 @@ export default function AdminLayout({
       .finally(() => setIsLoadingStatus(false));
   }, [isAuthorized]);
 
-  // 1. FUNGSI KLIK TOMBOL (Hanya Buka Modal)
   const handleToggleClick = () => {
     setShowConfirmModal(true);
   };
 
-  // 2. FUNGSI EKSEKUSI NYATA (Dipanggil tombol "Ya" di modal)
   const confirmToggleStore = async () => {
     if (isLoadingStatus) return;
     
-    // Tutup modal dulu biar UI responsif
     setShowConfirmModal(false);
     setIsLoadingStatus(true); 
 
@@ -67,8 +65,6 @@ export default function AdminLayout({
       const data = await response.json();
       if (data.success) {
         setIsStoreOpen(data.isStoreOpen);
-        // Opsional: Bisa ganti alert ini dengan Toast notification nanti
-        // alert(newState ? "✅ Toko BERHASIL DIBUKA" : "⛔ Toko BERHASIL DITUTUP");
       } else {
         throw new Error(data.message);
       }
@@ -102,17 +98,28 @@ export default function AdminLayout({
         <div className="container-fluid" style={{ maxWidth: "1400px" }}>
           
           <header className="d-flex justify-content-between align-items-center mb-5">
-            <div>
-              <h2 className="fw-bolder text-dark mb-0">PONTI JAYA MOTOR</h2>
-              <p className="text-muted fs-5 mb-0">Admin</p> 
+            {/* GRUP KIRI: Tombol Menu (HP Only) + Judul */}
+            <div className="d-flex align-items-center gap-3">
+              {/* TOMBOL HAMBURGER (Hanya muncul di Layar Kecil / d-lg-none) */}
+              <button 
+                className="btn btn-light shadow-sm d-lg-none p-2 rounded-circle"
+                onClick={() => setIsMobileSidebarOpen(true)}
+              >
+                <Menu size={24} className="text-primary" />
+              </button>
+
+              <div>
+                <h2 className="fw-bolder text-dark mb-0 fs-3 fs-md-2">PONTI JAYA MOTOR</h2>
+                <p className="text-muted fs-6 fs-md-5 mb-0">Admin</p> 
+              </div>
             </div>
             
-            {/* TOMBOL HEADER (Memanggil Modal) */}
+            {/* TOMBOL KANAN: Buka/Tutup Toko */}
             <button 
-              onClick={handleToggleClick} // <-- Panggil fungsi buka modal
+              onClick={handleToggleClick} 
               disabled={isLoadingStatus} 
-              className={`btn ${isStoreOpen ? 'btn-primary' : 'btn-danger'} d-flex align-items-center gap-2 px-4 py-2 rounded-pill fw-bold shadow-sm border-0`}
-              style={{backgroundColor: isStoreOpen ? '#0d6efd' : '#dc3545', transition: 'all 0.3s'}}
+              className={`btn ${isStoreOpen ? 'btn-primary' : 'btn-danger'} d-flex align-items-center gap-2 px-3 px-md-4 py-2 rounded-pill fw-bold shadow-sm border-0`}
+              style={{backgroundColor: isStoreOpen ? '#0d6efd' : '#dc3545', transition: 'all 0.3s', fontSize: '0.9rem'}}
             >
               {isLoadingStatus ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -120,29 +127,67 @@ export default function AdminLayout({
                 <Store size={18} />
               )}
               
-              {isLoadingStatus 
-                ? "Memuat..." 
-                : (isStoreOpen ? "Tutup Toko" : "Buka Toko")
-              }
+              <span className="d-none d-sm-inline"> 
+                {isLoadingStatus 
+                  ? "Memuat..." 
+                  : (isStoreOpen ? "Tutup Toko" : "Buka Toko")
+                }
+              </span>
             </button>
-
           </header>
 
           <div className="row g-4">
+            {/* SIDEBAR DESKTOP (Hanya muncul di Layar Besar / d-none d-lg-block) */}
             <div className="col-lg-3 d-none d-lg-block">
                <div className="sticky-top" style={{ top: "2rem", zIndex: 1 }}>
                  <AdminSidebar /> 
                </div>
             </div>
 
-            <main className="col-lg-9">
+            {/* MAIN CONTENT */}
+            <main className="col-12 col-lg-9">
               {children} 
             </main>
           </div>
         </div>
       </div>
 
-      {/* --- 3. MODAL KONFIRMASI TOKO (MODERN STYLE) --- */}
+      {/* --- TAMBAHAN BARU: MOBILE SIDEBAR OVERLAY --- */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-[9999] d-lg-none" 
+          style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2000 }}
+        >
+          {/* Backdrop Gelap */}
+          <div 
+            className="bg-dark bg-opacity-50 w-100 h-100 position-absolute"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            style={{ backdropFilter: 'blur(2px)' }}
+          ></div>
+
+          {/* Panel Sidebar */}
+          <div 
+            className="bg-white h-100 position-relative shadow-lg overflow-y-auto"
+            style={{ width: '280px', maxWidth: '80%' }}
+          >
+            <div className="p-3 d-flex justify-content-between align-items-center border-bottom">
+              <span className="fw-bold text-primary">Menu Admin</span>
+              <button 
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="btn btn-sm btn-light rounded-circle p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-3">
+              {/* Panggil Sidebar Component di sini */}
+              <AdminSidebar />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL KONFIRMASI TOKO --- */}
       {showConfirmModal && (
         <div 
           className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center p-3" 
@@ -153,14 +198,12 @@ export default function AdminLayout({
             style={{ maxWidth: '400px', width: '100%', backgroundColor: 'white' }}
           >
             <div className="card-body p-4 text-center">
-              {/* Ikon Peringatan */}
               <div className="mb-3 d-flex justify-content-center">
                 <div className={`p-3 rounded-circle ${isStoreOpen ? 'bg-danger bg-opacity-10 text-danger' : 'bg-success bg-opacity-10 text-success'}`}>
                   <AlertTriangle size={48} />
                 </div>
               </div>
               
-              {/* Judul & Deskripsi Dinamis */}
               <h5 className="fw-bold text-dark mb-2">
                 {isStoreOpen ? "Tutup Toko?" : "Buka Toko?"}
               </h5>
@@ -171,7 +214,6 @@ export default function AdminLayout({
                 }
               </p>
               
-              {/* Tombol Aksi */}
               <div className="d-flex gap-2 justify-content-center">
                 <button 
                   onClick={() => setShowConfirmModal(false)} 
