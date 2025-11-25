@@ -1,13 +1,15 @@
 'use client';
 
-// 1. IMPORT BOOTSTRAP & UTILS
+// 1. MODIFIKASI: Tambahkan import untuk Modal, Form, Toast, Alert, dan Loader2
 import { 
   Container, Row, Col, Button, Image, Card, Spinner,
   Modal, Form, Alert, Toast, ToastContainer 
 } from 'react-bootstrap';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+// PERBAIKAN: Menambahkan MessageCircle ke import
 import { Loader2, MessageCircle } from 'lucide-react'; 
+// === BARU: Impor useRouter untuk redirect ===
 import { useRouter } from 'next/navigation';
 import ChatWidget from './components/ChatWidget'; 
 
@@ -32,6 +34,7 @@ interface Product {
   kategori?: 'Sparepart' | 'Jasa' | 'Ori' | 'KW'; 
 }
 
+// TIPE BARU UNTUK JASA
 interface Service {
   _id: string;
   nama: string;
@@ -40,7 +43,7 @@ interface Service {
   deskripsi?: string;
 }
 
-// === DAFTAR FILTER NAMA ===
+// === DAFTAR FILTER NAMA (Tidak Berubah) ===
 const featuredProductNames = [
   "Veleg",
   "Selang Rem",
@@ -60,10 +63,13 @@ const bestSellingProductNames = [
 ];
 
 // === KOMPONEN UTAMA ===
-export default function Home() {
-  const router = useRouter();
 
-  // === STATE ===
+export default function Home() {
+  // === BARU: Inisialisasi router ===
+  const router = useRouter();
+  // =================================
+
+  // === STATE (DIPERBARUI) ===
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
   const [services, setServices] = useState<Service[]>([]); 
@@ -71,7 +77,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State Modal
+  // === BARU: State Modal ===
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1); 
@@ -80,22 +86,24 @@ export default function Home() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // State Chat Widget
+  // === PERBAIKAN: STATE UNTUK CHAT WIDGET ===
+  // State ini yang sebelumnya hilang sehingga menyebabkan error 'setChatProduct not found'
   const [chatProduct, setChatProduct] = useState<Product | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  // ==========================================
 
   const whatsappNumber = "6281297575567";
   const shopEmail = "edward.stiawan06@gmail.com"; 
   const emailSubject = "Pertanyaan Mengenai Ponti Jaya Motor";
   const mailtoUrl = `mailto:${shopEmail}?subject=${encodeURIComponent(emailSubject)}`;
 
-  // === LOGIKA FETCH ===
+  // === LOGIKA FETCH (DIPERBARUI) ===
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         const [sparepartRes, serviceRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/spareparts`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`)
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`) // <-- PANGGILAN API BARU
         ]);
 
         if (!sparepartRes.ok || !serviceRes.ok) {
@@ -146,24 +154,27 @@ export default function Home() {
   const handleServiceChat = (service: Service) => {
     const userInfoString = localStorage.getItem("userInfo");
     
+    // Cek Login
     if (!userInfoString) {
       alert("Silakan login terlebih dahulu untuk bertanya tentang jasa.");
       router.push('/login');
       return;
     }
 
+    // Ubah data 'Service' menjadi format 'Product' agar dibaca oleh ChatWidget
     const serviceAsProduct: Product = {
       _id: service._id,
       nama: service.nama,
       imageUrl: service.imageUrl,
       harga: service.harga,
-      stok: 1, 
+      stok: 1, // Service, tidak ada stok
       deskripsi: service.deskripsi,
       kategori: 'Jasa'
     };
     
-    setChatProduct(serviceAsProduct);
-    setIsChatOpen(true);
+    // Set konteks produk dan buka widget
+    setChatProduct(serviceAsProduct); // Sekarang ini tidak akan error
+    setIsChatOpen(true);              // Ini juga aman
   };
 
 
@@ -223,7 +234,7 @@ export default function Home() {
       quantity: quantity
     };
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart/add`, {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cartItemData)
@@ -301,7 +312,10 @@ export default function Home() {
       router.push('/login'); 
       return; 
     }
+    // Tutup modal produk
     handleCloseModal();
+    
+    // Set chat ke produk yang sedang dibuka di modal
     if (selectedProduct) {
         setChatProduct(selectedProduct);
         setIsChatOpen(true);
@@ -309,6 +323,7 @@ export default function Home() {
         alert('Produk tidak valid');
     }
   };
+
 
   return (
     <main style={{ backgroundColor: "#fff" }}>
@@ -334,10 +349,20 @@ export default function Home() {
               </p>
               <div className="d-flex gap-3 justify-content-center">
                 <Link href="/produk" passHref legacyBehavior>
-                  <Button size="lg" className="px-4 fw-bold rounded-3 btn-hero-primary">Lihat Katalog</Button>
+                  <Button
+                    size="lg"
+                    className="px-4 fw-bold rounded-3 btn-hero-primary"
+                  >
+                    Lihat Katalog
+                  </Button>
                 </Link>
                 <Link href="/#jasa" passHref legacyBehavior>
-                  <Button size="lg" className="px-4 fw-bold rounded-3 btn-hero-secondary">Jasa Servis</Button>
+                  <Button
+                    size="lg"
+                    className="px-4 fw-bold rounded-3 btn-hero-secondary"
+                  >
+                    Jasa Servis
+                  </Button>
                 </Link>
               </div>
             </Col>
@@ -348,7 +373,12 @@ export default function Home() {
       {/* === 2. PRODUK YANG PALING DI CARI-CARI === */}
       <Container as="section" className="py-5">
         <h3 className="fw-bold mb-5 text-dark">Produk Yang Paling di Cari-Cari</h3>
-        {loading && (<div className="text-center"><Spinner animation="border" role="status" /></div>)}
+        
+        {loading && (
+          <div className="text-center">
+            <Spinner animation="border" role="status" />
+          </div>
+        )}
         {error && <p className="text-danger text-center">Error: {error}</p>}
 
         <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 justify-content-center">
@@ -364,18 +394,28 @@ export default function Home() {
                 alt={product.nama}
                 roundedCircle
                 className="shadow-sm mb-3"
-                style={{ width: '120px', height: '120px', objectFit: 'cover' }}
+                style={{
+                  width: '120px',
+                  height: '120px',
+                  objectFit: 'cover'
+                }}
               />
               <h6 className="fw-bold text-dark">{product.nama}</h6>
             </Col>
           ))}
         </Row>
       </Container>
+
       
       {/* === 3. PRODUK TERLARIS === */}
       <Container as="section" className="py-5 bg-light">
         <h3 className="fw-bold mb-5 text-dark">Produk Terlaris</h3>
-        {loading && (<div className="text-center"><Spinner animation="border" role="status" /></div>)}
+        
+        {loading && (
+          <div className="text-center">
+            <Spinner animation="border" role="status" />
+          </div>
+        )}
         {error && <p className="text-danger text-center">Error: {error}</p>}
         
         <Row className="g-custom-20 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5">
@@ -389,7 +429,9 @@ export default function Home() {
                   style={{ height: '150px', objectFit: 'cover', cursor: 'pointer' }}
                   onClick={() => handleShowModal(product)} 
                 />
-                <Card.Body className="d-flex flex-column pt-3 px-3 pb-4">
+                <Card.Body
+                  className="d-flex flex-column pt-3 px-3 pb-4"
+                >
                   <Card.Title 
                     as="h5" 
                     className="fw-bold text-dark mb-1"
@@ -399,7 +441,11 @@ export default function Home() {
                     {product.nama}
                   </Card.Title>
                   <Card.Text className="text-dark fw-bold fs-5 mb-3">
-                    {product.harga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 })}
+                    {product.harga.toLocaleString('id-ID', {
+                      style: 'currency',
+                      currency: 'IDR',
+                      minimumFractionDigits: 0 
+                    })}
                   </Card.Text>
                   
                   <Button
@@ -407,14 +453,17 @@ export default function Home() {
                     className="w-100 mt-auto rounded-3 btn-add-to-cart"
                     onClick={() => handleShowModal(product)} 
                   >
-                    <i className="bi bi-cart-plus"></i> Tambah
+                    <i className="bi bi-cart-plus"></i>
+                    Tambah
                   </Button>
+
                 </Card.Body>
               </Card>
             </Col>
           ))}
         </Row>
       </Container>
+
       
       {/* === 4. JASA KAMI (CAROUSEL: TAMPIL 3, AUTO SLIDE) === */}
       <Container as="section" className="py-5" id="jasa"> 
@@ -460,24 +509,16 @@ export default function Home() {
                     className="d-flex flex-column justify-content-end align-items-start pb-4 ps-4"
                     style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
                   >
-                    <Card.Title as="h2" className="fw-bold mb-3" style={{ fontSize: '1.5rem' }}>
-                      {service.nama}
-                    </Card.Title>
-                    <Button
-                      variant="primary"
-                      className="rounded-3 btn-service-wa"
-                      onClick={() => handleServiceChat(service)} 
-                    >
-                      <MessageCircle size={18} className="me-2" style={{ fontSize: '1.2rem' }}/> 
-                      Hubungi Kami
-                    </Button>
-                  </Card.ImgOverlay>
-                </Card>
-              </SwiperSlide>
-            ))}
-          </Swiper>
-        )}
+                    <MessageCircle size={18} className="me-2" style={{ fontSize: '1.2rem' }}/> 
+                    Hubungi Kami
+                  </Button>
+                </Card.ImgOverlay>
+              </Card>
+            </Col>
+          ))}
+        </Row>
       </Container>
+
       
       {/* === 5. SECTION TENTANG KAMI === */}
       <Container as="section" className="py-5 bg-light">
@@ -502,6 +543,7 @@ export default function Home() {
           </Row>
         </div>
       </Container>
+
 
       {/* === 6. SECTION HUBUNGI KAMI === */}
       <Container as="section" className="py-5" id="hubungi"> 
@@ -529,14 +571,16 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <i className="bi bi-whatsapp"></i> WhatsApp
+                <i className="bi bi-whatsapp"></i>
+                WhatsApp
               </Button>
               <Button 
                 variant="primary" 
                 className="btn-contact-email"
                 href={mailtoUrl}
               >
-                <i className="bi bi-envelope-fill"></i> Email
+                <i className="bi bi-envelope-fill"></i>
+                Email
               </Button>
             </div>
           </Col>
@@ -614,6 +658,8 @@ export default function Home() {
         </Toast>
       </ToastContainer>
 
+      {/* === PERBAIKAN: RENDER CHAT WIDGET === */}
+      {/* Chat Widget perlu dirender di sini agar muncul */}
       <ChatWidget 
         productContext={chatProduct} 
         isOpen={isChatOpen} 
