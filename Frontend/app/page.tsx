@@ -126,7 +126,7 @@ export default function Home() {
 
         // Proses data jasa
         if (serviceData.success) {
-          setServices(serviceData.data.slice(0, 4)); 
+          setServices(serviceData.data.slice(0, 3)); 
         } else {
           throw new Error(serviceData.message || 'Gagal memuat data jasa');
         }
