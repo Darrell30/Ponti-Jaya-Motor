@@ -481,9 +481,27 @@ const server = http.createServer(async (req, res) => {
     // DASHBOARD STATS
     else if (path === '/api/admin/dashboard-stats' && method === 'GET') {
         try {
+            const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000); 
+            const autoUpdateResult = await Order.updateMany(
+                { 
+                    status: 'Tiba', 
+                    updatedAt: { $lt: twelveHoursAgo } 
+                },
+                { 
+                    $set: { status: 'Selesai' } 
+                }
+            );
+
+            if (autoUpdateResult.modifiedCount > 0) {
+                console.log(`[Auto-System] ${autoUpdateResult.modifiedCount} pesanan otomatis diubah menjadi Selesai.`);
+            }
+            
             const [rev, sold, carts, lowStock, top] = await Promise.all([
                 Order.aggregate([{ $match: { status: 'Selesai' } }, { $group: { _id: null, total: { $sum: "$totalAmount" } } }]),
+                
+                // Hitung item terjual
                 Order.aggregate([{ $match: { status: 'Selesai' } }, { $unwind: '$items' }, { $group: { _id: null, total: { $sum: "$items.quantity" } } }]),
+                
                 Cart.aggregate([{ $unwind: '$items' }, { $group: { _id: null, total: { $sum: "$items.quantity" } } }]),
                 Sparepart.find({ stok: { $lt: 10 } }).sort({ stok: 1 }),
                 Order.aggregate([
@@ -496,15 +514,19 @@ const server = http.createServer(async (req, res) => {
                     { $project: { _id: 0, nama: '$productInfo.nama', imageUrl: '$productInfo.imageUrl', totalSold: '$totalSold' } }
                 ])
             ]);
+            
             const stats = {
                 totalRevenue: rev[0]?.total || 0,
                 totalSoldItems: sold[0]?.total || 0,
                 totalInCarts: carts[0]?.total || 0
             };
             sendResponse(res, 200, { success: true, data: { stats, lowStockProducts: lowStock, topSellingProducts: top } });
-        } catch (e) { sendResponse(res, 500, { success: false }); }
+        } catch (e) { 
+            console.error(e); 
+            sendResponse(res, 500, { success: false, message: e.message }); 
+        }
     }
-
+    
     // CREATE ORDER (MIDTRANS)
     else if (path === '/api/orders/create' && method === 'POST') {
         console.log('[0] POST /api/orders/create (Midtrans)...');
